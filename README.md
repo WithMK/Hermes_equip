@@ -74,3 +74,16 @@ py -m venv .venv
 
 상세 설정은 `docs/REMOTE_INTEGRATION.md`, 최종 시험 순서는 `docs/FINAL_ACCEPTANCE.md`를
 참고한다.
+
+## 폐쇄망 설치 번들
+
+인터넷 연결 Windows PC에서 아래 스크립트를 실행하면 Hermes Core, MCP, Windows x64
+의존성, PortableGit과 이 PoC를 포함한 자체 완결 ZIP을 만든다.
+
+```powershell
+.\scripts\Prepare-HermesOfflineBundle.ps1
+```
+
+폐쇄망 PC에서는 ZIP을 압축 해제한 후 포함된 `Install-HermesOffline.ps1`을 실행한다.
+설치 스크립트는 전체 파일 SHA-256을 검증하고, `pip --no-index`를 강제한다. 상세 절차와
+제외 기능은 `docs/OFFLINE_INSTALL.md`를 참고한다.
