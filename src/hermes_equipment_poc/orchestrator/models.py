@@ -67,12 +67,17 @@ class EvidenceReference:
 class ArtifactReference:
     path: str
     artifact_type: str
+    sha256: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "path", _required(self.path, "path"))
         object.__setattr__(
             self, "artifact_type", _required(self.artifact_type, "artifact_type")
         )
+        digest = self.sha256.strip().lower()
+        if digest and (len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest)):
+            raise ValueError("sha256 must be a 64-character hexadecimal digest")
+        object.__setattr__(self, "sha256", digest)
 
 
 @dataclass(frozen=True)
@@ -107,12 +112,18 @@ class TaskRecord:
     assigned_agent: str | None = None
     evidence: list[EvidenceReference] = field(default_factory=list)
     artifacts: list[ArtifactReference] = field(default_factory=list)
+    decisions: list[str] = field(default_factory=list)
     failure_reason: str | None = None
+    version: int = 0
+    created_at: str = ""
+    updated_at: str = ""
 
     def __post_init__(self) -> None:
         self.task_id = _required(self.task_id, "task_id")
         self.workspace_id = _required(self.workspace_id, "workspace_id")
         self.objective = _required(self.objective, "objective")
+        if self.version < 0:
+            raise ValueError("version must not be negative")
 
     def transition(self, target: TaskStatus) -> None:
         if target not in _ALLOWED_TRANSITIONS[self.status]:

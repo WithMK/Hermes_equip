@@ -8,6 +8,12 @@ from .models import (
     TaskRecord,
     TaskStatus,
 )
+from .state_store import (
+    AgentOrchestraStateStore,
+    StateConflictError,
+    StateNotFoundError,
+    StateStoreError,
+)
 
 __all__ = [
     "AgentResult",
@@ -16,4 +22,8 @@ __all__ = [
     "EvidenceReference",
     "TaskRecord",
     "TaskStatus",
+    "AgentOrchestraStateStore",
+    "StateConflictError",
+    "StateNotFoundError",
+    "StateStoreError",
 ]
