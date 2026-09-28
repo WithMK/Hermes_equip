@@ -3,20 +3,18 @@ param(
     [string]$EquipmentRagBaseUrl,
     [string]$ContextManagerBaseUrl = "",
     [string]$Query = "Loader Vacuum Sensor",
-    [string]$SessionId = "hermes-poc-smoke",
     [string]$ContextHealthPath = "/health",
-    [string]$ContextGetPath = "/context",
-    [string]$ContextResolvePath = "/context/resolve-entity"
+    [string]$ContextChatPath = "/v1/chat/completions",
+    [string]$ContextModel = "REPLACE_MODEL_NAME"
 )
 
 $arguments = @(
     "-m", "hermes_equipment_poc.check_connections",
     "--equipment-rag-base-url", $EquipmentRagBaseUrl,
     "--query", $Query,
-    "--session-id", $SessionId,
     "--context-health-path", $ContextHealthPath,
-    "--context-get-path", $ContextGetPath,
-    "--context-resolve-path", $ContextResolvePath
+    "--context-chat-path", $ContextChatPath,
+    "--context-model", $ContextModel
 )
 
 if ($ContextManagerBaseUrl) {

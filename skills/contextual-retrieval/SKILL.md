@@ -1,20 +1,20 @@
 ---
 name: contextual-retrieval
-description: Resolve project, equipment, task and follow-up references through ContextManager before searching EquipmentRAG.
-version: 0.1.0
+description: Rewrite the current request into a standalone EquipmentRAG query using the bounded conversation and task context supplied by the Agent Orchestrator.
+version: 0.2.0
 platforms: [windows]
 metadata:
   hermes:
     category: equipment
-    requires_toolsets: [context_manager]
 ---
 
 # Contextual Retrieval
 
 ## Why
 
-Hermes Session은 현재 실행의 단기 문맥만 담당하고, Project/Equipment/Task 및 대명사 의미는
-ContextManager가 소유한다. EquipmentRAG에 대화 Memory 책임을 중복시키지 않는다.
+ContextManager는 짧은 대화의 연속성과 토큰 예산만 관리한다. Project, Equipment, Task,
+의사결정과 산출물의 구조화된 업무 문맥은 Agent Orchestrator가 소유한다. EquipmentRAG는
+검색 근거만 반환하며 어느 문맥을 사용할지 결정하지 않는다.
 
 ## When to use
 
@@ -24,20 +24,20 @@ ContextManager가 소유한다. EquipmentRAG에 대화 Memory 책임을 중복�
 
 ## Procedure
 
-1. 현재 `session_id`로 ContextManager context를 조회한다.
-2. Project/Equipment가 필요한데 확정되지 않았으면 전용 context를 조회한다.
-3. 후속 표현이 있으면 `resolve_recent_entity`로 의미를 확정한다.
-4. 해석된 Entity와 Task를 포함한 standalone query를 작성한다.
-5. Agent에 허용된 EquipmentRAG Tool로 standalone query를 검색한다.
-6. 응답에 해석된 대상, 검색 범위와 source identifier를 남긴다.
+1. Orchestrator가 전달한 현재 Task, Equipment, 결정과 최근 대화만 확인한다.
+2. 후속 표현이 가리키는 대상이 이 범위에서 하나로 확정되는지 검사한다.
+3. 확정된 Entity와 Task를 포함한 standalone query를 작성한다.
+4. Agent에 허용된 EquipmentRAG Tool로 standalone query를 검색한다.
+5. 응답에 해석된 대상, 검색 범위와 source identifier를 남긴다.
 
 ## Error handling
 
-ContextManager가 응답하지 않으면 대명사를 임의 해석하지 않는다. 사용자가 명시한 문장만으로
-안전하게 검색할 수 있으면 제한사항을 밝히고 진행하고, 그렇지 않으면 대상을 질문한다.
+제공된 문맥만으로 대상을 하나로 확정할 수 없으면 임의 해석하지 않는다. 사용자가 명시한
+문장만으로 안전하게 검색할 수 있으면 제한사항을 밝히고 진행하고, 그렇지 않으면 대상을
+질문한다.
 
 ## Completion
 
 - 대명사 또는 생략된 대상이 standalone query에서 명시됨
-- Context와 RAG의 책임이 분리됨
+- Orchestrator 문맥과 RAG의 책임이 분리됨
 - 검색 근거와 미확인 Context가 구분됨

@@ -1,10 +1,10 @@
 # Hermes Equipment Agent PoC Status
 
-Updated: 2026-09-08
+Updated: 2026-09-28
 
 ## Overall
 
-Status: **Phase 1 accepted / Integrated Phase 2 ready for target-PC acceptance**
+Status: **Security PoC accepted / Agent Orchestra foundation in progress**
 
 ## Completed
 
@@ -28,9 +28,10 @@ Status: **Phase 1 accepted / Integrated Phase 2 ready for target-PC acceptance**
 | Windows Native | User verified | Windows environment operational |
 | llama.cpp chat/tool call | User verified | Chat completion and structured tool call operational |
 | EquipmentRAG service | User verified | Code/document/all retrieval operational |
-| ContextManager service | User verified | Session continuity and pronoun resolution operational |
+| ContextManager service | User verified | OpenAI proxy, bounded session context and token management operational |
 | EquipmentRAG API alignment | Pass | `/health`, `/v1/retrieve`, `code/document/all` implemented |
-| Remote endpoint configuration | Pass | RAG/Context URL, auth and paths are profile settings |
+| Remote endpoint configuration | Pass | RAG Tool URL and C/M model URL are independently configurable |
+| A/O domain contract | Pass | Task transitions, Context Pack, evidence and artifact contracts |
 | Build target allowlist | Pass | Empty/unlisted target fails closed |
 
 ## Security decision
@@ -45,7 +46,7 @@ Hermes upstream은 `--yolo` 세션에서 Plugin approval gate를 우회하도록
 ## Automated tests
 
 ```text
-Ran 12 tests
+Ran 21 tests
 OK
 ```
 
@@ -62,18 +63,20 @@ Test coverage:
 - Audit event fields
 - EquipmentRAG v1 request mapping
 - Multi-scope taxonomy merge
-- Configurable ContextManager paths
+- ContextManager is used as the OpenAI-compatible model provider, not a domain-context Tool
+- Bounded A/O task-state transitions
 - Build target allowlist
 
 ## Pending target-PC acceptance
 
-현재 개발 환경에서는 내부 EquipmentRAG와 ContextManager에 접근할 수 없으므로 서비스에
-접근 가능한 Windows PC에서 다음 결과를 확보한다.
+RAG와 C/M의 기존 직접 연동은 사용자 환경에서 확인됐다. 다음 단계에서는 Hermes가 C/M을
+model provider로 사용하고 EquipmentRAG를 명시적 Tool로 호출하는 전체 경로를 시험한다.
 
 ```powershell
 .\scripts\Test-ExternalServices.ps1 `
   -EquipmentRagBaseUrl http://RAG_PC_IP:8765 `
   -ContextManagerBaseUrl http://CONTEXT_PC_IP:8091 `
+  -ContextModel REPLACE_MODEL_NAME `
   > external-services.json
 ```
 

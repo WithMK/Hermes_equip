@@ -13,7 +13,6 @@ from .knowledge_tools import KnowledgeTools
 from .merge_broker import MergeApprovalBroker
 from .service_clients import (
     DEFAULT_TAXONOMY_DOCUMENT_TYPES,
-    ContextManagerClient,
     EquipmentRagClient,
 )
 
@@ -53,15 +52,6 @@ def register(ctx: Any) -> None:
         str(ctx.get_config("equipment_rag.api_key_header", "Authorization")),
         str(ctx.get_config("equipment_rag.api_key_prefix", "Bearer ")),
     )
-    context_http = JsonApiClient(
-        str(ctx.get_config("context_manager.base_url", "http://127.0.0.1:8091")),
-        os.environ.get("CONTEXT_MANAGER_API_KEY", ""),
-        float(ctx.get_config("context_manager.timeout_seconds", 20)),
-        int(ctx.get_config("context_manager.retry_count", 1)),
-        int(ctx.get_config("context_manager.max_response_bytes", 2_000_000)),
-        str(ctx.get_config("context_manager.api_key_header", "Authorization")),
-        str(ctx.get_config("context_manager.api_key_prefix", "Bearer ")),
-    )
     raw_taxonomy_map = ctx.get_config(
         "equipment_rag.taxonomy_document_types", DEFAULT_TAXONOMY_DOCUMENT_TYPES
     )
@@ -73,15 +63,7 @@ def register(ctx: Any) -> None:
         str(ctx.get_config("equipment_rag.health_path", "/health")),
         {str(key).zfill(2): str(value) for key, value in raw_taxonomy_map.items()},
     )
-    context = ContextManagerClient(
-        context_http,
-        str(ctx.get_config("context_manager.paths.get_context", "/context")),
-        str(ctx.get_config("context_manager.paths.get_project_context", "/context/project")),
-        str(ctx.get_config("context_manager.paths.get_equipment_context", "/context/equipment")),
-        str(ctx.get_config("context_manager.paths.resolve_entity", "/context/resolve-entity")),
-        str(ctx.get_config("context_manager.paths.health", "/health")),
-    )
-    knowledge = KnowledgeTools(rag, context)
+    knowledge = KnowledgeTools(rag)
     git = GitTools(workspace_root, int(ctx.get_config("git.timeout_seconds", 60)))
     approval_store_value = ctx.get_config("git.approval_store")
     if not approval_store_value:
@@ -134,11 +116,6 @@ def register(ctx: Any) -> None:
     _register(ctx, "search_code", "equipment_rag_code", knowledge.search_code, "Search C# equipment control code evidence through EquipmentRAG /v1/retrieve.", code_prop, ["query"])
     _register(ctx, "search_document", "equipment_rag_document", knowledge.search_document, "Search equipment documents within selected taxonomy scopes.", scope_prop, ["query", "knowledge_scope"])
     _register(ctx, "retrieve_evidence", "equipment_rag_document", knowledge.retrieve_evidence, "Retrieve combined code and document evidence with source identifiers.", scope_prop, ["query", "knowledge_scope"])
-
-    _register(ctx, "get_context", "context_manager", knowledge.get_context, "Read current persistent work context.", {"session_id": {"type": "string"}})
-    _register(ctx, "get_project_context", "context_manager", knowledge.get_project_context, "Read current project context.", {"project_id": {"type": "string"}})
-    _register(ctx, "get_equipment_context", "context_manager", knowledge.get_equipment_context, "Read current equipment context.", {"equipment_id": {"type": "string"}})
-    _register(ctx, "resolve_recent_entity", "context_manager", knowledge.resolve_recent_entity, "Resolve a follow-up reference using persistent context.", {"session_id": {"type": "string"}, "utterance": {"type": "string"}}, ["utterance"])
 
     taxonomy_path = Path(__file__).resolve().parent / "resources" / "equipment_taxonomy.md"
 

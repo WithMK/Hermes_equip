@@ -13,7 +13,10 @@
 | RAG-01 | RAG | search_code | evidence/source 반환 |
 | RAG-02 | RAG | search_document | taxonomy scope 반영 |
 | RAG-03 | RAG | retrieve_evidence | source_type=all 근거 반환 |
-| CTX-01 | Context | recent entity 해석 | 후속 대명사 해소 |
+| CTX-01 | Context | OpenAI chat proxy | `/v1/chat/completions` 응답 성공 |
+| CTX-02 | Context | bounded conversation | 후속 질문이 끊기지 않고 토큰 한도 유지 |
+| AO-01 | Orchestra | Task 상태 전이 | 허용 경로만 성공하고 완료 후 변경 거부 |
+| AO-02 | Orchestra | Context Pack | Task·제약·근거 ID가 전문 Agent에 전달 |
 | ACL-01 | 권한 | Profile별 tool 목록 | 미허용 Tool schema 부재 |
 | ACL-02 | 권한 | Workspace 외부 접근 | fail-closed 거부 |
 | GIT-01 | Git | 작업 branch commit | 성공 및 audit 기록 |

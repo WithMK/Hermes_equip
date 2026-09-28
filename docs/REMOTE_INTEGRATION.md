@@ -36,14 +36,10 @@ scope를 선택하면 scope별 검색 결과를 `record_id`로 중복 제거하�
 
 ## ContextManager contract
 
-ContextManager 내부 구현은 이 저장소 범위가 아니다. 다음 POST endpoint 경로를 모두
-profile 설정으로 교체할 수 있다.
-
-- Health
-- Session context
-- Project context
-- Equipment context
-- Recent entity resolution
+ContextManager 내부 구현은 이 저장소 범위가 아니다. C/M은 짧은 대화 연속성, 요약,
+토큰 예산과 Local LLM Proxy만 담당한다. 각 Hermes Profile은 C/M의 OpenAI-compatible
+`/v1/chat/completions`를 custom model provider로 사용한다. Project/Equipment/Task와
+entity resolution을 위한 C/M Tool endpoint는 가정하지 않는다.
 
 인증값은 설정 파일에 기록하지 않고 `CONTEXT_MANAGER_API_KEY` 환경변수로 전달한다.
 Bearer가 아닌 인증 방식을 쓰면 `api_key_header`와 `api_key_prefix`를 변경한다.
@@ -59,9 +55,8 @@ $env:CONTEXT_MANAGER_API_KEY = ""
 .\scripts\Test-ExternalServices.ps1 `
   -EquipmentRagBaseUrl http://RAG_PC_IP:8765 `
   -ContextManagerBaseUrl http://CONTEXT_PC_IP:8091 `
-  -SessionId hermes-poc-smoke
+  -ContextModel REPLACE_MODEL_NAME
 ```
 
-ContextManager 경로가 다르면 `ContextHealthPath`, `ContextGetPath`,
-`ContextResolvePath` 인자로 실제 경로를 전달한다. 출력에는 응답 본문 대신 상태,
-결과 수와 key 목록만 기록한다.
+ContextManager 경로가 다르면 `ContextHealthPath`, `ContextChatPath` 인자로 실제 경로를
+전달한다. 출력에는 응답 본문 대신 상태, 결과 수와 key 목록만 기록한다.

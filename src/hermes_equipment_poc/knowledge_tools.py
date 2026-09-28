@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from .service_clients import ContextManagerClient, EquipmentRagClient
+from .service_clients import EquipmentRagClient
 
 
 VALID_SCOPES = {f"{i:02d}" for i in range(8)}
 
 
 class KnowledgeTools:
-    def __init__(self, rag: EquipmentRagClient, context: ContextManagerClient):
+    def __init__(self, rag: EquipmentRagClient):
         self.rag = rag
-        self.context = context
 
     @staticmethod
     def _query(params: dict[str, Any]) -> str:
@@ -63,19 +62,4 @@ class KnowledgeTools:
                 "project", "equipment", "unit", "revision", "document_status", "is_latest"
             )},
             knowledge_scopes=self._scopes(params),
-        )
-
-    def get_context(self, params: dict[str, Any], **_: Any) -> dict[str, Any]:
-        return self.context.get_context(str(params.get("session_id", "")))
-
-    def get_project_context(self, params: dict[str, Any], **_: Any) -> dict[str, Any]:
-        return self.context.get_project_context(str(params.get("project_id", "")))
-
-    def get_equipment_context(self, params: dict[str, Any], **_: Any) -> dict[str, Any]:
-        return self.context.get_equipment_context(str(params.get("equipment_id", "")))
-
-    def resolve_recent_entity(self, params: dict[str, Any], **_: Any) -> dict[str, Any]:
-        return self.context.resolve_entity(
-            str(params.get("session_id", "")),
-            str(params.get("utterance", "")).strip(),
         )

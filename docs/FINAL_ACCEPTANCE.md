@@ -2,7 +2,7 @@
 
 ## Gate A: Configuration
 
-- 네 개 Profile에서 LLM/RAG/ContextManager 실제 주소를 설정한다.
+- 네 개 Profile의 model URL을 ContextManager `/v1`에, RAG Tool URL을 EquipmentRAG에 설정한다.
 - Agent별로 서로 다른 API Server key를 환경변수에 넣는다.
 - `workspace_root`, 외부 `approval_store`, `audit.path`를 절대경로로 설정한다.
 - Code Development Agent의 `build.allowed_targets`를 명시한다.
@@ -33,8 +33,8 @@ Profile 변경 후에는 Hermes의 Tool listing으로 schema 부재를 확인한
 
 테스트용 C# Repository에서 다음을 순서대로 실행한다.
 
-1. ContextManager로 Project/Equipment/Task context를 얻는다.
-2. EquipmentRAG 코드/문서 근거를 검색한다.
+1. A/O Task에서 Project/Equipment/목표를 확인한다.
+2. EquipmentRAG 코드/문서 근거를 검색해 Context Pack에 넣는다.
 3. `work/poc-*` branch를 생성한다.
 4. 허용된 파일을 읽고 compare-and-swap hash로 수정한다.
 5. allowlist된 Solution을 Build/Test한다.

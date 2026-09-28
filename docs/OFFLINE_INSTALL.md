@@ -109,9 +109,9 @@ cd .\HermesEquipmentOfflineBundle
 설치 후 `%LOCALAPPDATA%\HermesEquipment\profiles` 아래 네 profile의 `config.yaml`에서
 모든 `REPLACE_...` 값을 변경한다.
 
-- `model.default`, `model.base_url`: 사내 GLM 또는 llama.cpp OpenAI-compatible endpoint
+- `model.default`: C/M이 노출하는 Local LLM model 이름
+- `model.base_url`: ContextManager OpenAI-compatible `/v1` endpoint
 - `equipment_rag.base_url`: 다른 PC의 EquipmentRAG 주소
-- `context_manager.base_url`: 다른 PC의 ContextManager 주소
 - `workspace_root`: 허용할 설비제어SW 저장소의 절대 경로
 - `git.approval_store`: workspace 외부의 승인 저장 경로
 - `build.allowed_targets`: build/test를 허용할 solution 상대 경로
@@ -145,9 +145,9 @@ PATH를 변경하지 않은 기본 설치에서는 생성된 launcher를 사용�
 & "$env:LOCALAPPDATA\HermesEquipment\bin\hermes-equipment.cmd" -p code-development-agent
 ```
 
-각 profile은 서로 다른 API Server port를 사용한다. RAG와 ContextManager가 아직 없으면
-해당 Tool 호출만 실패해야 하며 Hermes, llama.cpp 및 profile 로딩 검증은 독립적으로
-수행할 수 있다.
+각 profile은 서로 다른 API Server port를 사용한다. RAG가 없으면 검색 Tool만 실패한다.
+ContextManager가 없으면 model 호출을 수행할 수 없으므로 Profile 설정과 Plugin Tool 목록까지만
+독립적으로 검증한다.
 
 ## 6. 재현성과 업데이트
 

@@ -1,13 +1,14 @@
 # Hermes Equipment Agent PoC
 
-Hermes Agent를 범용 Runtime으로 사용하면서 기존 EquipmentRAG와 ContextManager를
-Adapter로 연결하기 위한 사내 설비제어SW PoC이다.
+Hermes Agent를 Runtime으로 사용해 EquipmentRAG, ContextManager와 제한형 개발 Tool을
+조정하는 사내 설비제어SW Agent Orchestra PoC이다.
 
 ## 고정 원칙
 
 - Hermes Core는 수정하지 않는다.
 - EquipmentRAG는 Knowledge Retrieval Service로 유지한다.
-- ContextManager는 Persistent Work Context의 소유자로 유지한다.
+- ContextManager는 짧은 대화 연속성, 요약, 토큰 예산과 Local LLM Proxy만 담당한다.
+- Agent Orchestra는 Project/Equipment/Task, 결정, 근거와 산출물 상태를 소유한다.
 - Agent에는 arbitrary shell command를 제공하지 않는다.
 - 실제 설비제어, production 배포, force push 기능은 제공하지 않는다.
 - Hermes Tool은 main merge를 실행할 수 없고 승인 요청만 생성한다.
@@ -33,11 +34,12 @@ scripts/               Windows PoC 실행/검증 스크립트
 
 ## 현재 범위
 
-통합 Phase 2 구현본이다. Windows, llama.cpp, EquipmentRAG, ContextManager의 실제 연결은
+통합 Phase 2 기준선을 A/O 구조로 정리하는 개발본이다. Windows, EquipmentRAG,
+ContextManager의 실제 연결은
 대상 PC에서 수행하며 이 저장소에는 내부 주소나 Credential을 포함하지 않는다.
 
 - WithMK/EquipmentRAG의 `GET /health`, `POST /v1/retrieve` 계약 지원
-- 원격 EquipmentRAG/ContextManager URL, 인증 Header, Endpoint 경로 설정
+- EquipmentRAG `/v1/retrieve` Tool과 ContextManager `/v1/chat/completions` 모델 경로 분리
 - 코드/문서/통합 검색과 8계통 `document_type` 매핑
 - 4개 Agent별 Toolset 최소 권한
 - 제한형 File/Git/Build/Log Tool
@@ -69,11 +71,12 @@ py -m venv .venv
 ```powershell
 .\scripts\Test-ExternalServices.ps1 `
   -EquipmentRagBaseUrl http://RAG_PC_IP:8765 `
-  -ContextManagerBaseUrl http://CONTEXT_PC_IP:8091
+  -ContextManagerBaseUrl http://CONTEXT_PC_IP:8091 `
+  -ContextModel REPLACE_MODEL_NAME
 ```
 
 상세 설정은 `docs/REMOTE_INTEGRATION.md`, 최종 시험 순서는 `docs/FINAL_ACCEPTANCE.md`를
-참고한다.
+참고한다. A/O 단계별 구현 범위는 `docs/AO_DEVELOPMENT_PLAN.md`에 정리한다.
 
 ## 폐쇄망 설치 번들
 

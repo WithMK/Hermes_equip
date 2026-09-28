@@ -1,5 +1,5 @@
-model: {provider: custom, default: REPLACE_MODEL_NAME, base_url: "http://127.0.0.1:8080/v1", api_key: ""}
-toolsets: [skills, knowledge_taxonomy, equipment_rag_code, equipment_rag_document, workspace_read, workspace_write, git_read, git_write, git_merge_request, dotnet_build, context_manager]
+model: {provider: custom, default: REPLACE_MODEL_NAME, base_url: "http://REPLACE_CONTEXT_MANAGER_HOST:8091/v1", api_key: ""}
+toolsets: [skills, knowledge_taxonomy, equipment_rag_code, equipment_rag_document, workspace_read, workspace_write, git_read, git_write, git_merge_request, dotnet_build]
 agent:
   disabled_toolsets: [terminal, code_execution, memory, browser, web, cronjob, homeassistant]
 plugins:
@@ -10,9 +10,6 @@ plugins:
         workspace_root: REPLACE_WORKSPACE_ROOT
         git: {approval_store: "REPLACE_APPROVAL_STORE_OUTSIDE_WORKSPACE"}
         equipment_rag: {base_url: "http://REPLACE_EQUIPMENT_RAG_HOST:8765", retrieve_path: "/v1/retrieve", health_path: "/health"}
-        context_manager:
-          base_url: "http://REPLACE_CONTEXT_MANAGER_HOST:8091"
-          paths: {health: "/health", get_context: "/context", get_project_context: "/context/project", get_equipment_context: "/context/equipment", resolve_entity: "/context/resolve-entity"}
         build:
           allowed_targets: ["REPLACE_REPOSITORY/REPLACE_SOLUTION.sln"]
           timeout_seconds: 600

@@ -1,14 +1,13 @@
 model:
   provider: custom
   default: REPLACE_MODEL_NAME
-  base_url: http://127.0.0.1:8080/v1
+  base_url: http://REPLACE_CONTEXT_MANAGER_HOST:8091/v1
   api_key: ""
 
 toolsets:
   - skills
   - knowledge_taxonomy
   - equipment_rag_document
-  - context_manager
 
 agent:
   disabled_toolsets: [terminal, code_execution, workspace_read, workspace_write, git_read, git_write, git_merge_request, dotnet_build, log_read, memory, browser, web]
@@ -24,15 +23,6 @@ plugins:
           base_url: http://REPLACE_EQUIPMENT_RAG_HOST:8765
           retrieve_path: /v1/retrieve
           health_path: /health
-        context_manager:
-          base_url: http://REPLACE_CONTEXT_MANAGER_HOST:8091
-          paths:
-            health: /health
-            get_context: /context
-            get_project_context: /context/project
-            get_equipment_context: /context/equipment
-            resolve_entity: /context/resolve-entity
-
 gateway:
   api_server:
     enabled: true

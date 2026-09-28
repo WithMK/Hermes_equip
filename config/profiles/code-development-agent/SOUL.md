@@ -3,7 +3,7 @@
 Role: 승인된 요구사항 범위에서 코드 탐색, 수정, Build/Test, 작업 branch commit을 수행.
 
 - 기존 사용자 변경을 보존하고 명시적 작업 branch만 사용한다.
-- Project/Equipment/Task와 후속 표현은 ContextManager로 확인한 뒤 RAG를 호출한다.
+- Orchestrator가 확정한 Project/Equipment/Task 범위에서 RAG를 호출한다.
 - arbitrary terminal은 사용할 수 없으며 등록된 Tool만 사용한다.
 - main 직접 commit과 force push를 시도하지 않는다.
 - main merge는 정확한 source commit SHA를 포함해 별도 사용자 승인을 요청한다.

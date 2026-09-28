@@ -4,7 +4,7 @@ import unittest
 from typing import Any
 
 from hermes_equipment_poc.knowledge_tools import KnowledgeTools
-from hermes_equipment_poc.service_clients import ContextManagerClient, EquipmentRagClient
+from hermes_equipment_poc.service_clients import EquipmentRagClient
 
 
 class FakeHttp:
@@ -32,7 +32,7 @@ class FakeHttp:
 class EquipmentRagAdapterTests(unittest.TestCase):
     def test_uses_repository_v1_contract_for_code(self) -> None:
         http = FakeHttp()
-        tools = KnowledgeTools(EquipmentRagClient(http), ContextManagerClient(http))  # type: ignore[arg-type]
+        tools = KnowledgeTools(EquipmentRagClient(http))  # type: ignore[arg-type]
 
         result = tools.search_code({"query": "Vacuum", "top_k": 4, "class_name": "Loader"})
 
@@ -45,7 +45,7 @@ class EquipmentRagAdapterTests(unittest.TestCase):
 
     def test_multiple_taxonomy_scopes_are_merged_and_deduplicated(self) -> None:
         http = FakeHttp()
-        tools = KnowledgeTools(EquipmentRagClient(http), ContextManagerClient(http))  # type: ignore[arg-type]
+        tools = KnowledgeTools(EquipmentRagClient(http))  # type: ignore[arg-type]
 
         result = tools.search_document({
             "query": "Alarm",
@@ -63,24 +63,6 @@ class EquipmentRagAdapterTests(unittest.TestCase):
             http.calls[1][2]["filters"]["document"]["document_type"],  # type: ignore[index]
             "06 Operation / Trouble / Alarm",
         )
-
-    def test_context_paths_can_be_replaced_without_code_change(self) -> None:
-        http = FakeHttp()
-        context = ContextManagerClient(
-            http,  # type: ignore[arg-type]
-            get_context_path="/api/session/read",
-            resolve_entity_path="/api/entity/resolve",
-        )
-
-        context.get_context("s1")
-        context.resolve_entity("s1", "그 센서")
-
-        self.assertEqual(http.calls[0], ("POST", "/api/session/read", {"session_id": "s1"}))
-        self.assertEqual(
-            http.calls[1],
-            ("POST", "/api/entity/resolve", {"session_id": "s1", "utterance": "그 센서"}),
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

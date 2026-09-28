@@ -58,6 +58,13 @@ class PluginSurfaceTests(unittest.TestCase):
             register(ctx)
             names = set(ctx.tools)
             self.assertIn("request_main_merge", names)
+            for removed_context_tool in (
+                "get_context",
+                "get_project_context",
+                "get_equipment_context",
+                "resolve_recent_entity",
+            ):
+                self.assertNotIn(removed_context_tool, names)
             for forbidden in ("terminal", "run_command", "force_push", "plc_write", "servo_on", "motion_move"):
                 self.assertNotIn(forbidden, names)
 

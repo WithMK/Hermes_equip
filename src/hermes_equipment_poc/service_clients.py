@@ -95,36 +95,6 @@ class EquipmentRagClient:
         return self.http.post(self.retrieve_path, payload)
 
 
-@dataclass(frozen=True)
-class ContextManagerClient:
-    """Configurable client because ContextManager's internal contract is external to this PoC."""
-
-    http: JsonApiClient
-    get_context_path: str = "/context"
-    get_project_context_path: str = "/context/project"
-    get_equipment_context_path: str = "/context/equipment"
-    resolve_entity_path: str = "/context/resolve-entity"
-    health_path: str = "/health"
-
-    def health(self) -> dict[str, Any]:
-        return self.http.get(self.health_path)
-
-    def get_context(self, session_id: str) -> dict[str, Any]:
-        return self.http.post(self.get_context_path, {"session_id": session_id})
-
-    def get_project_context(self, project_id: str) -> dict[str, Any]:
-        return self.http.post(self.get_project_context_path, {"project_id": project_id})
-
-    def get_equipment_context(self, equipment_id: str) -> dict[str, Any]:
-        return self.http.post(self.get_equipment_context_path, {"equipment_id": equipment_id})
-
-    def resolve_entity(self, session_id: str, utterance: str) -> dict[str, Any]:
-        return self.http.post(
-            self.resolve_entity_path,
-            {"session_id": session_id, "utterance": utterance},
-        )
-
-
 def _without_empty(values: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in values.items() if value not in (None, "")}
 

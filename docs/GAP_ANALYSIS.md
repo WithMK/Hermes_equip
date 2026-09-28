@@ -18,12 +18,13 @@
 - API key, bind address, CORS
 - Session retention/prune
 - Hermes memory tool 비활성화
+- ContextManager custom model endpoint (`/v1/chat/completions`)
 
 ## C. Adapter가 필요한 기능
 
 - EquipmentRAG REST/MCP Adapter
-- ContextManager REST/MCP Adapter
-- ContextManager turn context injection
+- A/O Task State Store
+- Context Pack builder and specialist-agent handoff
 - Audit event sink
 - 외부 Frontend용 approval client
 - Agent 외부 one-time main merge approval executor
@@ -35,6 +36,9 @@
 - main merge request store와 human approval CLI
 - 고정형 Build/Test Tool
 - Log read/search Tool
+
+ContextManager의 Project/Equipment/Task 또는 entity-resolution Tool은 만들지 않는다.
+이 구조화된 업무 문맥은 A/O가 소유하며 C/M은 대화·요약·토큰·LLM Proxy 경계로 유지한다.
 
 ## E. Core 수정 가능성이 있는 기능
 

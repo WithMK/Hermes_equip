@@ -3,28 +3,35 @@
 ```text
 OpenWebUI / Approval Client
           |
-Hermes API Server (profile per agent)
+Agent Orchestra / Hermes API Server
           |
 Hermes Agent Loop + Skills + Toolset allowlist
           |
 Hermes Equipment Plugin
-  |          |           |          |
-RAG Adapter  Context     Git/Build  Audit Hook
-             Adapter     Tools
-  |          |
-EquipmentRAG ContextManager
+  |                    |          |
+RAG Adapter        Git/Build  Audit Hook
+  |                    Tools
+EquipmentRAG
+
+Hermes model provider -> ContextManager /v1/chat/completions -> llama.cpp/Ollama
 ```
 
 ## Responsibility
 
 | Component | Responsibility |
 |---|---|
-| Hermes | Agent loop, short session, skills, tool dispatch, approval transport |
+| Agent Orchestra | Project/Equipment/Task, planning, delegation, evidence and artifact state |
+| Hermes | Agent loop, skills, tool dispatch and approval transport |
 | EquipmentRAG | Code/document retrieval, embedding, vector/hybrid search, evidence |
-| ContextManager | Project/equipment/task/entity and persistent work context |
+| ContextManager | Bounded conversation, summary, token budget and Local LLM proxy |
 | Skills | 업무 수행 절차와 판단 기준 |
 | Plugin Tools | 제한된 파일, Git, Build, Log 기능 |
 | Audit Hook | Tool, Skill, Approval event 기록 |
+
+ContextManager는 Hermes Plugin Tool이 아니다. 각 Profile의 OpenAI-compatible model
+`base_url`이 ContextManager `/v1`을 가리킨다. A/O는 EquipmentRAG를 명시적으로 호출해
+선택한 근거만 model message에 넣으며, C/M은 이 입력과 짧은 대화 이력을 토큰 예산 안에서
+llama.cpp/Ollama로 전달한다.
 
 ## Approval boundary
 

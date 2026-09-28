@@ -7,7 +7,7 @@ import sys
 from typing import Any
 
 from .http_client import JsonApiClient
-from .service_clients import ContextManagerClient, EquipmentRagClient
+from .service_clients import EquipmentRagClient
 
 
 def _summary(name: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -25,10 +25,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--equipment-rag-base-url", required=True)
     parser.add_argument("--context-manager-base-url")
     parser.add_argument("--query", default="Loader Vacuum Sensor")
-    parser.add_argument("--session-id", default="hermes-poc-smoke")
     parser.add_argument("--context-health-path", default="/health")
-    parser.add_argument("--context-get-path", default="/context")
-    parser.add_argument("--context-resolve-path", default="/context/resolve-entity")
+    parser.add_argument("--context-chat-path", default="/v1/chat/completions")
+    parser.add_argument("--context-model", default="REPLACE_MODEL_NAME")
     parser.add_argument("--timeout-seconds", type=float, default=20.0)
     args = parser.parse_args(argv)
 
@@ -59,21 +58,26 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if args.context_manager_base_url:
-        context = ContextManagerClient(
-            JsonApiClient(
-                args.context_manager_base_url,
-                os.environ.get("CONTEXT_MANAGER_API_KEY", ""),
-                args.timeout_seconds,
-            ),
-            get_context_path=args.context_get_path,
-            resolve_entity_path=args.context_resolve_path,
-            health_path=args.context_health_path,
+        context = JsonApiClient(
+            args.context_manager_base_url,
+            os.environ.get("CONTEXT_MANAGER_API_KEY", ""),
+            args.timeout_seconds,
         )
-        run("context_manager.health", context.health)
-        run("context_manager.get_context", lambda: context.get_context(args.session_id))
+        run("context_manager.health", lambda: context.get(args.context_health_path))
         run(
-            "context_manager.resolve_entity",
-            lambda: context.resolve_entity(args.session_id, "그 센서는 어디서 체크해?"),
+            "context_manager.chat_completion",
+            lambda: context.post(
+                args.context_chat_path,
+                {
+                    "model": args.context_model,
+                    "stream": False,
+                    "temperature": 0,
+                    "max_tokens": 16,
+                    "messages": [
+                        {"role": "user", "content": "Reply with exactly: HERMES_AO_OK"}
+                    ],
+                },
+            ),
         )
 
     output = {"ok": not failures, "checks": results, "failures": failures}
