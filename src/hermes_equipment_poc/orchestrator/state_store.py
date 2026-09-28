@@ -443,7 +443,7 @@ class AgentOrchestraStateStore:
             rows = connection.execute(
                 """
                 SELECT * FROM agent_runs
-                WHERE task_id = ? ORDER BY started_at, run_id
+                WHERE task_id = ? ORDER BY rowid
                 """,
                 (task_id,),
             ).fetchall()
