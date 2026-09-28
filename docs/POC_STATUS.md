@@ -4,7 +4,7 @@ Updated: 2026-09-28
 
 ## Overall
 
-Status: **Security PoC accepted / A/O State Store completed**
+Status: **Single Orchestrator implemented / target-PC integration pending**
 
 ## Completed
 
@@ -15,7 +15,7 @@ Status: **Security PoC accepted / A/O State Store completed**
 | Core modification | Pass | No upstream source changes |
 | PoC package import | Pass | Editable package import successful |
 | Actual PluginManager load | Pass | Enabled, no plugin error, expected tools registered |
-| Profile YAML validation | Pass | Four profiles parsed; enabled/disabled sets do not overlap |
+| Profile YAML validation | Pass | Orchestrator and four specialist profiles have bounded toolsets |
 | Arbitrary terminal exclusion | Pass | All profiles globally disable `terminal` |
 | Equipment control tool exclusion | Pass | Motion/Servo/PLC/IO/Recipe/Run/Stop tools absent |
 | Protected branch direct commit | Pass | Unit test rejects commit on `main` |
@@ -33,6 +33,7 @@ Status: **Security PoC accepted / A/O State Store completed**
 | Remote endpoint configuration | Pass | RAG Tool URL and C/M model URL are independently configurable |
 | A/O domain contract | Pass | Task transitions, Context Pack, evidence and artifact contracts |
 | A/O State Store | Pass | SQLite WAL, optimistic version, Task/Run/Evidence/Decision/Artifact/Checkpoint persistence |
+| Single Orchestrator | Pass | classify, plan, retrieve, C/M completion, citation validation and persistence |
 | Build target allowlist | Pass | Empty/unlisted target fails closed |
 
 ## Security decision
@@ -47,7 +48,7 @@ Hermes upstream은 `--yolo` 세션에서 Plugin approval gate를 우회하도록
 ## Automated tests
 
 ```text
-Ran 29 tests
+Ran 40 tests
 OK
 ```
 
@@ -69,6 +70,9 @@ Test coverage:
 - SQLite restart persistence and newer-schema rejection
 - Optimistic Task version conflict and terminal-state mutation denial
 - Agent Run parent scope, one-time completion and Checkpoint recovery
+- Request classification and optional RAG fast path
+- ContextManager session-field forwarding and OpenAI response validation
+- no-evidence safe answer and citation/adapter failure persistence
 - Build target allowlist
 
 ## Pending target-PC acceptance

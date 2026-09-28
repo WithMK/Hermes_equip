@@ -14,6 +14,16 @@ from .state_store import (
     StateNotFoundError,
     StateStoreError,
 )
+from .chat_client import ChatCompletionResult, ContextManagerChatClient
+from .single import (
+    OrchestratorExecutionError,
+    OrchestratorRequest,
+    OrchestratorResult,
+    RequestClassifier,
+    RequestKind,
+    ResultValidationError,
+    SingleOrchestrator,
+)
 
 __all__ = [
     "AgentResult",
@@ -26,4 +36,13 @@ __all__ = [
     "StateConflictError",
     "StateNotFoundError",
     "StateStoreError",
+    "ChatCompletionResult",
+    "ContextManagerChatClient",
+    "OrchestratorExecutionError",
+    "OrchestratorRequest",
+    "OrchestratorResult",
+    "RequestClassifier",
+    "RequestKind",
+    "ResultValidationError",
+    "SingleOrchestrator",
 ]
