@@ -11,6 +11,7 @@ from .http_client import JsonApiClient
 from .orchestrator import (
     AgentOrchestraStateStore,
     ContextManagerChatClient,
+    MarkdownArtifactStore,
     OpenAiSpecialistDispatcher,
     OrchestratorExecutionError,
     OrchestratorRequest,
@@ -34,6 +35,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--session-id", default="")
     parser.add_argument("--objective", default="")
     parser.add_argument("--decision-task-id", action="append", default=[])
+    parser.add_argument("--create-artifact", action="store_true")
+    parser.add_argument("--artifact-root", default="")
     parser.add_argument("--restart-task-id", default="")
     parser.add_argument("--expected-version", type=int)
     parser.add_argument("--confirm-worker-stopped", action="store_true")
@@ -139,11 +142,27 @@ def main(argv: list[str] | None = None) -> int:
             chat_path=args.context_chat_path,
             session_field=args.context_session_field,
         )
+        artifact_store = None
+        if args.artifact_root:
+            artifact_store = MarkdownArtifactStore(args.artifact_root)
+        if args.create_artifact and artifact_store is None:
+            raise ValueError("--artifact-root is required with --create-artifact")
+        if args.create_artifact:
+            if not args.workspace_root:
+                raise ValueError("--workspace-root is required with --create-artifact")
+            workspace_root = Path(args.workspace_root).resolve(strict=True)
+            try:
+                artifact_store.root.relative_to(workspace_root)  # type: ignore[union-attr]
+            except ValueError:
+                pass
+            else:
+                raise ValueError("artifact root must be outside workspace root")
         orchestrator = SingleOrchestrator(
             store,
             rag,
             chat,
             specialists=_specialist_dispatcher(args),
+            artifact_store=artifact_store,
         )
         if args.restart_task_id:
             if not args.confirm_worker_stopped or args.expected_version is None:
@@ -168,6 +187,7 @@ def main(argv: list[str] | None = None) -> int:
                 knowledge_scopes=tuple(args.knowledge_scope),
                 top_k=args.top_k,
                 decision_task_ids=tuple(args.decision_task_id),
+                create_artifact=args.create_artifact,
             )
         )
         print(json.dumps({"ok": True, **asdict(result)}, ensure_ascii=False, indent=2))

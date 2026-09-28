@@ -1,8 +1,8 @@
 # Final Integration Acceptance
 
-Gate D의 쓰기·Build·commit·merge workflow는 production workflow milestone에서 Code
-Development Agent의 현재 읽기 전용 Profile을 승인형 쓰기 Profile로 전환한 뒤 수행한다.
-전문 위임 milestone에서는 분석과 변경 계획까지만 허용한다.
+Code Development Agent Profile은 읽기 전용을 유지한다. 별도 A/O Proposal Workflow만 운영자
+확인 후 allowlist 파일 수정과 Build/Test를 수행하며 stage, commit, push, merge request와
+`main` 반영은 허용하지 않는다.
 
 ## Gate A: Configuration
 
@@ -10,7 +10,7 @@ Development Agent의 현재 읽기 전용 Profile을 승인형 쓰기 Profile로
   RAG Tool URL을 EquipmentRAG에 설정한다.
 - Agent별로 서로 다른 API Server key를 환경변수에 넣는다.
 - `workspace_root`, 외부 `approval_store`, `audit.path`를 절대경로로 설정한다.
-- Code Development Agent의 `build.allowed_targets`를 명시한다.
+- A/O Proposal Workflow 실행 시 변경 파일과 `build.allowed_targets`를 별도로 명시한다.
 - Hermes 실행 Windows 계정에는 production 배포 Credential과 설비망 쓰기 권한을 주지 않는다.
 
 ## Gate B: External service contract
@@ -28,7 +28,10 @@ Development Agent의 현재 읽기 전용 Profile을 승인형 쓰기 Profile로
 | Code Analysis Agent commit | Tool absent |
 | Troubleshooting Agent RAG/log/Git read | Allowed |
 | Troubleshooting Agent file write | Tool absent |
-| Code Development Agent approved workspace/write/build/commit | Allowed |
+| Code Development Agent proposal and read | Allowed |
+| Code Development Agent write/build/commit | Tool absent |
+| A/O Proposal Workflow allowlisted branch/write/build/diff | Allowed after operator confirmation |
+| A/O Proposal Workflow stage/commit/push/merge | Not implemented / forbidden |
 | Any Agent terminal/Motion/PLC/IO/Recipe/deploy | Tool absent |
 
 Profile 변경 후에는 Hermes의 Tool listing으로 schema 부재를 확인한다. Prompt로 금지하는
@@ -43,13 +46,11 @@ Profile 변경 후에는 Hermes의 Tool listing으로 schema 부재를 확인한
 3. `work/poc-*` branch를 생성한다.
 4. 허용된 파일을 읽고 compare-and-swap hash로 수정한다.
 5. allowlist된 Solution을 Build/Test한다.
-6. Diff를 검토하고 명시적 파일만 stage한다.
-7. 작업 branch에 commit한다.
-8. exact source SHA로 main merge 요청을 생성한다.
-9. Agent 외부 CLI에서 사람이 승인한다.
-10. main merge commit과 Audit를 확인한다.
+6. Base SHA 대비 Diff와 변경 전·후 파일 SHA를 기록한다.
+7. Index가 비어 있고 HEAD가 Base SHA와 동일한지 확인한다.
+8. 작업 branch의 unstaged/uncommitted 변경을 사람이 검토한다.
 
-Build/Test 실패 시 commit 또는 merge request를 자동으로 진행하면 불합격이다.
+Build/Test 실패 시 Task를 실패 처리하고 commit 또는 merge request 경로가 없어야 한다.
 
 ## Gate E: Negative security tests
 

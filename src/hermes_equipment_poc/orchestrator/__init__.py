@@ -15,6 +15,7 @@ from .state_store import (
     StateStoreError,
 )
 from .chat_client import ChatCompletionResult, ContextManagerChatClient
+from .artifacts import ArtifactStore, MarkdownArtifactStore
 from .specialists import (
     OpenAiSpecialistDispatcher,
     SequentialDelegationPlanner,
@@ -31,6 +32,14 @@ from .single import (
     ResultValidationError,
     SingleOrchestrator,
 )
+from .proposal_workflow import (
+    CodeChangeProposal,
+    CodeProposalWorkflow,
+    ProposalWorkflowError,
+    ProposalWorkflowRequest,
+    ProposalWorkflowResult,
+    ProposedFileChange,
+)
 
 __all__ = [
     "AgentResult",
@@ -45,6 +54,8 @@ __all__ = [
     "StateStoreError",
     "ChatCompletionResult",
     "ContextManagerChatClient",
+    "ArtifactStore",
+    "MarkdownArtifactStore",
     "OpenAiSpecialistDispatcher",
     "SequentialDelegationPlanner",
     "SpecialistAgent",
@@ -57,4 +68,10 @@ __all__ = [
     "RequestKind",
     "ResultValidationError",
     "SingleOrchestrator",
+    "CodeChangeProposal",
+    "CodeProposalWorkflow",
+    "ProposalWorkflowError",
+    "ProposalWorkflowRequest",
+    "ProposalWorkflowResult",
+    "ProposedFileChange",
 ]

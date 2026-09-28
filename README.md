@@ -84,6 +84,7 @@ State Store 운영 경계와 복구 방법은 `docs/AO_STATE_STORE.md`를 따른
 단일 Orchestrator 실행 방법은 `docs/SINGLE_ORCHESTRATOR.md`를 참고한다.
 전문 Agent 순차 위임은 `docs/SPECIALIST_DELEGATION.md`를 참고한다.
 1~3단계 안정화, 결정사항 재사용과 명시적 재실행은 `docs/AO_STABILIZATION.md`를 참고한다.
+4A 보고서 Artifact와 4B 비커밋 코드 변경 비교는 `docs/PHASE4_WORKFLOWS.md`를 참고한다.
 
 ## 폐쇄망 설치 번들
 
