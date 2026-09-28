@@ -253,7 +253,7 @@ class SequentialSpecialistOrchestratorTests(unittest.TestCase):
         ]
         self.assertEqual([item.agent for item in result.delegations], expected)
         self.assertEqual([item["agent"] for item in specialists.calls], expected)
-        self.assertEqual(len(specialists.calls[1]["previous"]), 1)
+        self.assertEqual(len(specialists.calls[1]["previous"]), 0)
         self.assertEqual(len(specialists.calls[2]["previous"]), 2)
         self.assertEqual(direct_chat.calls, [])
         self.assertEqual(result.answer, result.delegations[-1].result.summary)
@@ -369,7 +369,7 @@ class SequentialSpecialistOrchestratorTests(unittest.TestCase):
                 )
             )
 
-        self.assertIn("did not cite supplied evidence", str(raised.exception))
+        self.assertIn("does not cite any retrieved source", str(raised.exception))
 
 
 if __name__ == "__main__":

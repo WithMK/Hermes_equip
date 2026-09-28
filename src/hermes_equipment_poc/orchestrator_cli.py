@@ -32,7 +32,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--workspace-root", default="")
     parser.add_argument("--task-id", default="")
     parser.add_argument("--session-id", default="")
-    parser.add_argument("--objective", required=True)
+    parser.add_argument("--objective", default="")
+    parser.add_argument("--decision-task-id", action="append", default=[])
+    parser.add_argument("--restart-task-id", default="")
+    parser.add_argument("--expected-version", type=int)
+    parser.add_argument("--confirm-worker-stopped", action="store_true")
     parser.add_argument("--equipment-id")
     parser.add_argument("--request-kind", choices=[item.value for item in RequestKind])
     parser.add_argument("--knowledge-scope", action="append", default=[])
@@ -135,12 +139,21 @@ def main(argv: list[str] | None = None) -> int:
             chat_path=args.context_chat_path,
             session_field=args.context_session_field,
         )
-        result = SingleOrchestrator(
+        orchestrator = SingleOrchestrator(
             store,
             rag,
             chat,
             specialists=_specialist_dispatcher(args),
-        ).run(
+        )
+        if args.restart_task_id:
+            if not args.confirm_worker_stopped or args.expected_version is None:
+                raise ValueError("restart requires --confirm-worker-stopped and --expected-version")
+            if store.get_task(args.restart_task_id).workspace_id != args.workspace_id:
+                raise ValueError("restart workspace mismatch")
+            result = orchestrator.restart(args.restart_task_id, expected_version=args.expected_version)
+            print(json.dumps({"ok": True, **asdict(result)}, ensure_ascii=False, indent=2))
+            return 0
+        result = orchestrator.run(
             OrchestratorRequest(
                 workspace_id=args.workspace_id,
                 objective=args.objective,
@@ -154,6 +167,7 @@ def main(argv: list[str] | None = None) -> int:
                 decisions=tuple(args.decision),
                 knowledge_scopes=tuple(args.knowledge_scope),
                 top_k=args.top_k,
+                decision_task_ids=tuple(args.decision_task_id),
             )
         )
         print(json.dumps({"ok": True, **asdict(result)}, ensure_ascii=False, indent=2))
