@@ -8,6 +8,12 @@ from uuid import uuid4
 
 from .chat_client import ChatCompletionResult
 from .models import ContextPack, EvidenceReference, TaskRecord, TaskStatus
+from .specialists import (
+    SequentialDelegationPlanner,
+    SpecialistAgent,
+    SpecialistDispatcher,
+    SpecialistOutcome,
+)
 from .state_store import AgentOrchestraStateStore
 
 
@@ -85,6 +91,7 @@ class OrchestratorResult:
     model: str = ""
     finish_reason: str = ""
     usage: dict[str, Any] = field(default_factory=dict)
+    delegations: tuple[SpecialistOutcome, ...] = ()
 
 
 class RetrievalProvider(Protocol):
@@ -190,6 +197,8 @@ class SingleOrchestrator:
         chat: ChatProvider,
         *,
         classifier: RequestClassifier | None = None,
+        specialists: SpecialistDispatcher | None = None,
+        delegation_planner: SequentialDelegationPlanner | None = None,
         evidence_character_budget: int = 30_000,
     ):
         if evidence_character_budget < 1000:
@@ -198,6 +207,8 @@ class SingleOrchestrator:
         self.rag = rag
         self.chat = chat
         self.classifier = classifier or RequestClassifier()
+        self.specialists = specialists
+        self.delegation_planner = delegation_planner or SequentialDelegationPlanner()
         self.evidence_character_budget = evidence_character_budget
 
     def run(self, request: OrchestratorRequest) -> OrchestratorResult:
@@ -281,11 +292,35 @@ class SingleOrchestrator:
                 requested_output=self._requested_output(kind),
             )
 
+            delegations: tuple[SpecialistOutcome, ...] = ()
             if plan.required and not evidence:
                 completion = ChatCompletionResult(
                     content=_NO_EVIDENCE_ANSWER,
                     finish_reason="no_evidence",
                 )
+            elif self.specialists is not None:
+                delegation_plan = self.delegation_planner.plan(kind.value, evidence)
+                if delegation_plan:
+                    delegations = self._delegate_sequentially(
+                        task_id=task_id,
+                        parent_run_id=run_id,
+                        context=context_pack,
+                        sources=sources,
+                        plan=delegation_plan,
+                        session_id=request.session_id,
+                    )
+                    last = delegations[-1]
+                    completion = ChatCompletionResult(
+                        content=last.result.summary,
+                        model=last.model,
+                        finish_reason=last.finish_reason,
+                        usage=last.usage,
+                    )
+                else:
+                    completion = self.chat.complete(
+                        self._messages(context_pack, sources),
+                        session_id=request.session_id,
+                    )
             else:
                 completion = self.chat.complete(
                     self._messages(context_pack, sources),
@@ -304,6 +339,7 @@ class SingleOrchestrator:
                     "phase": "validated",
                     "answer": completion.content,
                     "source_ids": [item.source_id for item in evidence],
+                    "delegated_agents": [item.agent.value for item in delegations],
                 },
             )
             self.state_store.finish_agent_run(
@@ -325,6 +361,7 @@ class SingleOrchestrator:
                 model=completion.model,
                 finish_reason=completion.finish_reason,
                 usage=completion.usage,
+                delegations=delegations,
             )
         except Exception as exc:
             reason = f"{type(exc).__name__}: {str(exc)[:500]}"
@@ -349,6 +386,106 @@ class SingleOrchestrator:
             except Exception:
                 pass
             raise OrchestratorExecutionError(task_id, reason) from exc
+
+    def _delegate_sequentially(
+        self,
+        *,
+        task_id: str,
+        parent_run_id: str,
+        context: ContextPack,
+        sources: Sequence[Mapping[str, Any]],
+        plan: Sequence[SpecialistAgent],
+        session_id: str,
+    ) -> tuple[SpecialistOutcome, ...]:
+        if self.specialists is None:  # pragma: no cover - guarded by caller
+            raise RuntimeError("specialist dispatcher is not configured")
+        outcomes: list[SpecialistOutcome] = []
+        for index, agent in enumerate(plan, 1):
+            agent_sources = self.delegation_planner.sources_for(agent, sources)
+            child = self.state_store.start_agent_run(
+                task_id,
+                agent.value,
+                parent_run_id=parent_run_id,
+            )
+            try:
+                outcome = self.specialists.delegate(
+                    agent,
+                    context,
+                    sources=agent_sources,
+                    previous=tuple(outcomes),
+                    session_id=self._specialist_session_id(
+                        session_id, task_id, agent
+                    ),
+                )
+                self._validate_specialist_outcome(outcome, agent_sources)
+                self.state_store.finish_agent_run(
+                    child["run_id"],
+                    status="completed",
+                    summary=outcome.result.summary[:2000],
+                )
+            except Exception as exc:
+                try:
+                    self.state_store.finish_agent_run(
+                        child["run_id"],
+                        status="failed",
+                        error=f"{type(exc).__name__}: {str(exc)[:500]}",
+                    )
+                except Exception:
+                    pass
+                raise
+            outcomes.append(outcome)
+            self.state_store.save_checkpoint(
+                task_id,
+                {
+                    "phase": "specialist_completed",
+                    "step": index,
+                    "step_count": len(plan),
+                    "agent": agent.value,
+                    "evidence_ids": list(outcome.result.evidence_ids),
+                },
+            )
+        return tuple(outcomes)
+
+    @staticmethod
+    def _specialist_session_id(
+        session_id: str,
+        task_id: str,
+        agent: SpecialistAgent,
+    ) -> str:
+        root = session_id.strip() or task_id
+        return f"{root}:{agent.value}"
+
+    @staticmethod
+    def _validate_specialist_outcome(
+        outcome: SpecialistOutcome,
+        sources: Sequence[Mapping[str, Any]],
+    ) -> None:
+        if outcome.result.status != "completed":
+            raise ResultValidationError(
+                f"{outcome.agent.value} returned {outcome.result.status}"
+            )
+        supplied_ids = {
+            str(item.get("source_id", "")).strip()
+            for item in sources
+            if str(item.get("source_id", "")).strip()
+        }
+        cited_ids = set(outcome.result.evidence_ids)
+        unknown = cited_ids - supplied_ids
+        if unknown:
+            raise ResultValidationError(
+                f"{outcome.agent.value} cited unknown evidence: {sorted(unknown)}"
+            )
+        if supplied_ids and not cited_ids:
+            raise ResultValidationError(
+                f"{outcome.agent.value} did not cite supplied evidence"
+            )
+        if any(
+            f"[{source_id}]" not in outcome.result.summary
+            for source_id in cited_ids
+        ):
+            raise ResultValidationError(
+                f"{outcome.agent.value} evidence_ids do not match its summary"
+            )
 
     @staticmethod
     def _retrieval_plan(
@@ -376,7 +513,18 @@ class SingleOrchestrator:
         raw = response.get("sources", [])
         if not isinstance(raw, list):
             raise ValueError("EquipmentRAG sources must be an array")
-        return [dict(item) for item in raw if isinstance(item, dict)]
+        normalized: list[dict[str, Any]] = []
+        for index, raw_item in enumerate(raw, 1):
+            if not isinstance(raw_item, dict):
+                continue
+            item = dict(raw_item)
+            item["source_id"] = str(item.get("source_id") or f"S{index}").strip()
+            source_type = str(item.get("source_type") or "").strip()
+            if source_type not in {"code", "document"}:
+                source_type = "document" if "text" in item else "code"
+            item["source_type"] = source_type
+            normalized.append(item)
+        return normalized
 
     @staticmethod
     def _evidence(

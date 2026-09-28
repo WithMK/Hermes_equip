@@ -15,6 +15,13 @@ from .state_store import (
     StateStoreError,
 )
 from .chat_client import ChatCompletionResult, ContextManagerChatClient
+from .specialists import (
+    OpenAiSpecialistDispatcher,
+    SequentialDelegationPlanner,
+    SpecialistAgent,
+    SpecialistDispatcher,
+    SpecialistOutcome,
+)
 from .single import (
     OrchestratorExecutionError,
     OrchestratorRequest,
@@ -38,6 +45,11 @@ __all__ = [
     "StateStoreError",
     "ChatCompletionResult",
     "ContextManagerChatClient",
+    "OpenAiSpecialistDispatcher",
+    "SequentialDelegationPlanner",
+    "SpecialistAgent",
+    "SpecialistDispatcher",
+    "SpecialistOutcome",
     "OrchestratorExecutionError",
     "OrchestratorRequest",
     "OrchestratorResult",

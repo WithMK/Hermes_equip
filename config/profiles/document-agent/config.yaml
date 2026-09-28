@@ -7,10 +7,9 @@ model:
 toolsets:
   - skills
   - knowledge_taxonomy
-  - equipment_rag_document
 
 agent:
-  disabled_toolsets: [terminal, code_execution, workspace_read, workspace_write, git_read, git_write, git_merge_request, dotnet_build, log_read, memory, browser, web]
+  disabled_toolsets: [terminal, code_execution, equipment_rag_code, equipment_rag_document, workspace_read, workspace_write, git_read, git_write, git_merge_request, dotnet_build, log_read, memory, browser, web]
 
 plugins:
   enabled: [hermes-equipment-platform]

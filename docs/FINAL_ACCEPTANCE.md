@@ -1,5 +1,9 @@
 # Final Integration Acceptance
 
+Gate D의 쓰기·Build·commit·merge workflow는 production workflow milestone에서 Code
+Development Agent의 현재 읽기 전용 Profile을 승인형 쓰기 Profile로 전환한 뒤 수행한다.
+전문 위임 milestone에서는 분석과 변경 계획까지만 허용한다.
+
 ## Gate A: Configuration
 
 - Orchestrator와 네 개 전문 Agent Profile의 model URL을 ContextManager `/v1`에,

@@ -11,10 +11,12 @@ from .http_client import JsonApiClient
 from .orchestrator import (
     AgentOrchestraStateStore,
     ContextManagerChatClient,
+    OpenAiSpecialistDispatcher,
     OrchestratorExecutionError,
     OrchestratorRequest,
     RequestKind,
     SingleOrchestrator,
+    SpecialistAgent,
     StateNotFoundError,
 )
 from .service_clients import EquipmentRagClient
@@ -43,8 +45,64 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--context-chat-path", default="/v1/chat/completions")
     parser.add_argument("--context-model", required=True)
     parser.add_argument("--context-session-field", default="session_id")
+    parser.add_argument(
+        "--enable-specialists",
+        action="store_true",
+        help="Delegate non-question requests to the four Hermes specialist gateways",
+    )
+    parser.add_argument(
+        "--document-agent-base-url", default="http://127.0.0.1:8642"
+    )
+    parser.add_argument(
+        "--code-analysis-agent-base-url", default="http://127.0.0.1:8643"
+    )
+    parser.add_argument(
+        "--troubleshooting-agent-base-url", default="http://127.0.0.1:8644"
+    )
+    parser.add_argument(
+        "--code-development-agent-base-url", default="http://127.0.0.1:8645"
+    )
+    parser.add_argument("--specialist-chat-path", default="/v1/chat/completions")
+    parser.add_argument("--specialist-session-field", default="")
     parser.add_argument("--timeout-seconds", type=float, default=120.0)
     return parser
+
+
+def _specialist_dispatcher(args: argparse.Namespace) -> OpenAiSpecialistDispatcher | None:
+    if not args.enable_specialists:
+        return None
+    settings = {
+        SpecialistAgent.DOCUMENT: (
+            args.document_agent_base_url,
+            "HERMES_DOCUMENT_AGENT_API_KEY",
+        ),
+        SpecialistAgent.CODE_ANALYSIS: (
+            args.code_analysis_agent_base_url,
+            "HERMES_CODE_ANALYSIS_AGENT_API_KEY",
+        ),
+        SpecialistAgent.TROUBLESHOOTING: (
+            args.troubleshooting_agent_base_url,
+            "HERMES_TROUBLESHOOTING_AGENT_API_KEY",
+        ),
+        SpecialistAgent.CODE_DEVELOPMENT: (
+            args.code_development_agent_base_url,
+            "HERMES_CODE_DEVELOPMENT_AGENT_API_KEY",
+        ),
+    }
+    providers = {
+        agent: ContextManagerChatClient(
+            JsonApiClient(
+                base_url,
+                os.environ.get(api_key_name, ""),
+                args.timeout_seconds,
+            ),
+            agent.value,
+            chat_path=args.specialist_chat_path,
+            session_field=args.specialist_session_field,
+        )
+        for agent, (base_url, api_key_name) in settings.items()
+    }
+    return OpenAiSpecialistDispatcher(providers)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -77,7 +135,12 @@ def main(argv: list[str] | None = None) -> int:
             chat_path=args.context_chat_path,
             session_field=args.context_session_field,
         )
-        result = SingleOrchestrator(store, rag, chat).run(
+        result = SingleOrchestrator(
+            store,
+            rag,
+            chat,
+            specialists=_specialist_dispatcher(args),
+        ).run(
             OrchestratorRequest(
                 workspace_id=args.workspace_id,
                 objective=args.objective,

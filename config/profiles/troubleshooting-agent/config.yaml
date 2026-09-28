@@ -1,7 +1,7 @@
 model: {provider: custom, default: REPLACE_MODEL_NAME, base_url: "http://REPLACE_CONTEXT_MANAGER_HOST:8091/v1", api_key: ""}
-toolsets: [skills, knowledge_taxonomy, equipment_rag_code, equipment_rag_document, workspace_read, git_read, log_read]
+toolsets: [skills, knowledge_taxonomy, workspace_read, git_read, log_read]
 agent:
-  disabled_toolsets: [terminal, code_execution, workspace_write, git_write, git_merge_request, dotnet_build, memory, browser, web]
+  disabled_toolsets: [terminal, code_execution, equipment_rag_code, equipment_rag_document, workspace_write, git_write, git_merge_request, dotnet_build, memory, browser, web]
 plugins:
   enabled: [hermes-equipment-platform]
   entries:
