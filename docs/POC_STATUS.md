@@ -4,7 +4,7 @@ Updated: 2026-09-28
 
 ## Overall
 
-Status: **Single Orchestrator implemented / target-PC integration pending**
+Status: **Sequential specialist delegation implemented / target-PC integration pending**
 
 ## Completed
 
@@ -34,6 +34,9 @@ Status: **Single Orchestrator implemented / target-PC integration pending**
 | A/O domain contract | Pass | Task transitions, Context Pack, evidence and artifact contracts |
 | A/O State Store | Pass | SQLite WAL, optimistic version, Task/Run/Evidence/Decision/Artifact/Checkpoint persistence |
 | Single Orchestrator | Pass | classify, plan, retrieve, C/M completion, citation validation and persistence |
+| Specialist delegation | Pass | Fixed sequential routes, role-scoped evidence and parent/child Run lineage |
+| Specialist validation | Pass | Missing/unknown citation and endpoint failure stop child, parent and Task |
+| Code Development phase boundary | Pass | Read-only plan mode; write/build/Git mutation toolsets disabled |
 | Build target allowlist | Pass | Empty/unlisted target fails closed |
 
 ## Security decision
@@ -48,7 +51,7 @@ Hermes upstream은 `--yolo` 세션에서 Plugin approval gate를 우회하도록
 ## Automated tests
 
 ```text
-Ran 40 tests
+Ran 51 tests
 OK
 ```
 
@@ -73,12 +76,17 @@ Test coverage:
 - Request classification and optional RAG fast path
 - ContextManager session-field forwarding and OpenAI response validation
 - no-evidence safe answer and citation/adapter failure persistence
+- Fixed specialist route planning and role-specific evidence filtering
+- Specialist profiles cannot repeat A/O-owned RAG retrieval
+- Sequential prior-result handoff and parent/child Agent Run lineage
+- Specialist failure and missing-citation fail-closed behavior
 - Build target allowlist
 
 ## Pending target-PC acceptance
 
-RAG와 C/M의 기존 직접 연동은 사용자 환경에서 확인됐다. 다음 단계에서는 Hermes가 C/M을
-model provider로 사용하고 EquipmentRAG를 명시적 Tool로 호출하는 전체 경로를 시험한다.
+RAG와 C/M의 기존 직접 연동은 사용자 환경에서 확인됐다. 다음 단계에서는 A/O가 네 개의
+Hermes 전문 Agent API Server를 순차 호출하고 각 Profile이 C/M을 model provider로 사용하는
+전체 경로를 시험한다.
 
 ```powershell
 .\scripts\Test-ExternalServices.ps1 `

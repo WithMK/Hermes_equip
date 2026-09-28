@@ -2,7 +2,8 @@
 
 ## Scope
 
-The single Orchestrator implements one bounded request without specialist delegation:
+The single Orchestrator implements one bounded request and can optionally enable sequential
+specialist delegation:
 
 ```text
 classify -> plan -> retrieve -> build Context Pack -> call ContextManager
@@ -66,4 +67,5 @@ exit code `1` with the persisted `task_id` when orchestration fails.
 | `code_change` | code + document; this phase returns a plan only |
 
 The caller can set `request_kind` explicitly. Otherwise a bounded deterministic classifier is used.
-Model-based planning and specialist delegation are deferred to the next milestone.
+Deterministic specialist delegation is enabled with `--enable-specialists`. See
+`SPECIALIST_DELEGATION.md`. Model-based or dynamic planning remains deferred.

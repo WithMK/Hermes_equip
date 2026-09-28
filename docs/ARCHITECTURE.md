@@ -36,9 +36,13 @@ ContextManager는 Hermes Plugin Tool이 아니다. 각 Profile의 OpenAI-compati
 선택한 근거만 model message에 넣으며, C/M은 이 입력과 짧은 대화 이력을 토큰 예산 안에서
 llama.cpp/Ollama로 전달한다.
 
-Single Orchestrator는 `classify → plan → retrieve → generate → validate → persist`를 코드로
-고정한다. 전문 Agent 위임은 다음 단계이며 현재 `delegated` 상태는 단일 Orchestrator의
-실행 구간을 나타낸다.
+Single Orchestrator는 `classify → plan → retrieve → delegate → validate → persist`를 코드로
+고정한다. 전문 Agent는 별도 Hermes API Server로 실행되며 A/O가 만든 Context Pack과 역할별
+근거만 순차적으로 받는다. 각 child Agent Run은 parent Orchestrator Run에 연결된다. 일반
+질문은 전문 Agent를 생략하고 C/M으로 직접 전달한다.
+
+현재 Code Development Agent는 변경 계획 전용 읽기 모드이다. 쓰기, Build/Test, commit과
+merge request는 production workflow 단계에서 별도 승인 경계와 함께 활성화한다.
 
 ## Approval boundary
 

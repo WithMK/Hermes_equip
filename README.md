@@ -34,13 +34,15 @@ scripts/               Windows PoC 실행/검증 스크립트
 
 ## 현재 범위
 
-통합 Phase 2 기준선을 A/O 구조로 정리하는 개발본이다. Windows, EquipmentRAG,
+Agent Orchestra 전문 위임 단계까지 구현한 개발본이다. Windows, EquipmentRAG,
 ContextManager의 실제 연결은
 대상 PC에서 수행하며 이 저장소에는 내부 주소나 Credential을 포함하지 않는다.
 
 - WithMK/EquipmentRAG의 `GET /health`, `POST /v1/retrieve` 계약 지원
 - EquipmentRAG `/v1/retrieve` Tool과 ContextManager `/v1/chat/completions` 모델 경로 분리
 - SQLite A/O State Store의 Task, Agent Run, 근거, 결정, 산출물과 Checkpoint 영속화
+- 고정 Registry 기반 Document/Code Analysis/Troubleshooting/Code Development 순차 위임
+- 전문 Agent별 근거 분리, parent/child Run 계보와 단계별 인용 검증
 - 코드/문서/통합 검색과 8계통 `document_type` 매핑
 - Orchestrator와 4개 전문 Agent별 Toolset 최소 권한
 - 제한형 File/Git/Build/Log Tool
@@ -80,6 +82,7 @@ py -m venv .venv
 참고한다. A/O 단계별 구현 범위는 `docs/AO_DEVELOPMENT_PLAN.md`에 정리한다.
 State Store 운영 경계와 복구 방법은 `docs/AO_STATE_STORE.md`를 따른다.
 단일 Orchestrator 실행 방법은 `docs/SINGLE_ORCHESTRATOR.md`를 참고한다.
+전문 Agent 순차 위임은 `docs/SPECIALIST_DELEGATION.md`를 참고한다.
 
 ## 폐쇄망 설치 번들
 

@@ -24,6 +24,9 @@
 | AO-07 | Orchestra | 검색 없는 질문 | RAG를 호출하지 않고 C/M 응답 |
 | AO-08 | Orchestra | 근거 기반 응답 | 사용한 Source ID 인용 후 완료 |
 | AO-09 | Orchestra | 검색/검증 실패 | Task와 Agent Run이 `failed`로 영속화 |
+| AO-10 | Orchestra | 전문 Agent 순차 위임 | 고정 순서와 parent/child Run 계보 유지 |
+| AO-11 | Orchestra | 역할별 근거 분리 | Document는 문서, Code Analysis는 코드 근거만 수신 |
+| AO-12 | Orchestra | 위임 실패/허위 인용 | child·parent Run과 Task가 fail-closed |
 | ACL-01 | 권한 | Profile별 tool 목록 | 미허용 Tool schema 부재 |
 | ACL-02 | 권한 | Workspace 외부 접근 | fail-closed 거부 |
 | GIT-01 | Git | 작업 branch commit | 성공 및 audit 기록 |
