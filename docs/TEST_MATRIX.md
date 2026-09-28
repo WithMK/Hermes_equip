@@ -27,6 +27,14 @@
 | AO-10 | Orchestra | 전문 Agent 순차 위임 | 고정 순서와 parent/child Run 계보 유지 |
 | AO-11 | Orchestra | 역할별 근거 분리 | Document는 문서, Code Analysis는 코드 근거만 수신 |
 | AO-12 | Orchestra | 위임 실패/허위 인용 | child·parent Run과 Task가 fail-closed |
+| ART-01 | Artifact | Markdown 보고서 | exclusive-create, SHA-256, Task 등록 |
+| ART-02 | Artifact | 저장 위치 | Agent Workspace 밖으로 제한 |
+| DEV-01 | Proposal | Clean main에서 작업 branch 생성 | `work/ao-*`, Base SHA 고정 |
+| DEV-02 | Proposal | 파일 변경 | 운영자 allowlist + CAS SHA가 모두 일치 |
+| DEV-03 | Proposal | Build/Test | allowlist 대상만 실행하고 결과 기록 |
+| DEV-04 | Proposal | 비교 | Base Diff와 전후 SHA Artifact 생성 |
+| DEV-05 | Proposal | Git 경계 | stage/commit/push/merge 0건, HEAD 불변 |
+| DEV-06 | Proposal | 예상 밖 파일 | Build 생성 파일 포함 즉시 실패 |
 | ACL-01 | 권한 | Profile별 tool 목록 | 미허용 Tool schema 부재 |
 | ACL-02 | 권한 | Workspace 외부 접근 | fail-closed 거부 |
 | GIT-01 | Git | 작업 branch commit | 성공 및 audit 기록 |

@@ -13,7 +13,10 @@
 2. State Store: SQLite persistence for Task, Run, Evidence, Decision, Artifact and Checkpoint. **Completed**
 3. Single Orchestrator: classify, plan, retrieve, call C/M, validate and persist. **Completed**
 4. Specialist delegation: document, code analysis, troubleshooting and code development. **Completed**
-5. Production workflows: reports, code change, build/test, commit and merge request.
+5. Controlled workflows:
+   - Phase 4A: hash-verified Markdown reports and Artifact registration. **Completed**
+   - Phase 4B: allowlisted work-branch change, build/test and base diff without commit. **Completed**
+   - Commit, push and merge request: deferred; not authorized.
 6. Closed-network acceptance: clean offline install, recovery and negative security tests.
 
 ## Initial constraints

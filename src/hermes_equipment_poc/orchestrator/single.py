@@ -5,11 +5,13 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
+from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 from uuid import uuid4
 
+from .artifacts import ArtifactStore
 from .chat_client import ChatCompletionResult
-from .models import ContextPack, EvidenceReference, TaskRecord, TaskStatus
+from .models import ArtifactReference, ContextPack, EvidenceReference, TaskRecord, TaskStatus
 from .specialists import (
     SequentialDelegationPlanner,
     SpecialistAgent,
@@ -53,6 +55,7 @@ class OrchestratorRequest:
     top_k: int = 8
     decision_task_ids: tuple[str, ...] = ()
     restart_of: str = ""
+    create_artifact: bool = False
 
     def __post_init__(self) -> None:
         for name, value, limit in (
@@ -99,6 +102,7 @@ class OrchestratorResult:
     finish_reason: str = ""
     usage: dict[str, Any] = field(default_factory=dict)
     delegations: tuple[SpecialistOutcome, ...] = ()
+    artifacts: tuple[ArtifactReference, ...] = ()
 
 
 class RetrievalProvider(Protocol):
@@ -206,6 +210,7 @@ class SingleOrchestrator:
         classifier: RequestClassifier | None = None,
         specialists: SpecialistDispatcher | None = None,
         delegation_planner: SequentialDelegationPlanner | None = None,
+        artifact_store: ArtifactStore | None = None,
         evidence_character_budget: int = 30_000,
     ):
         if evidence_character_budget < 1000:
@@ -216,6 +221,7 @@ class SingleOrchestrator:
         self.classifier = classifier or RequestClassifier()
         self.specialists = specialists
         self.delegation_planner = delegation_planner or SequentialDelegationPlanner()
+        self.artifact_store = artifact_store
         self.evidence_character_budget = evidence_character_budget
 
     def run(self, request: OrchestratorRequest) -> OrchestratorResult:
@@ -356,6 +362,33 @@ class SingleOrchestrator:
             )
             validate_finish(completion.finish_reason)
             self._validate(completion.content, evidence)
+            artifacts: tuple[ArtifactReference, ...] = ()
+            if request.create_artifact:
+                if self.artifact_store is None:
+                    raise ValueError("artifact_store is required when create_artifact is enabled")
+                workspace = self.state_store.get_workspace(request.workspace_id)
+                workspace_root_value = str(workspace.get("root_path", "")).strip()
+                if not workspace_root_value:
+                    raise ValueError("workspace root_path is required for artifact boundary validation")
+                workspace_root = Path(workspace_root_value).resolve(strict=True)
+                try:
+                    Path(self.artifact_store.root).resolve(strict=True).relative_to(workspace_root)
+                except ValueError:
+                    pass
+                else:
+                    raise ValueError("artifact root must be outside workspace root")
+                artifact = self.artifact_store.create_report(
+                    task_id=task_id,
+                    title=self._artifact_title(kind, request.equipment_id),
+                    result=completion.content,
+                    evidence=evidence,
+                )
+                try:
+                    self.state_store.add_artifact(task_id, artifact)
+                except Exception:
+                    self.artifact_store.discard(artifact)
+                    raise
+                artifacts = (artifact,)
             self.state_store.save_checkpoint(
                 task_id,
                 {
@@ -363,6 +396,7 @@ class SingleOrchestrator:
                     "answer": completion.content,
                     "source_ids": [item.source_id for item in evidence],
                     "delegated_agents": [item.agent.value for item in delegations],
+                    "artifact_paths": [item.path for item in artifacts],
                 },
             )
             self.state_store.finish_agent_run(
@@ -385,6 +419,7 @@ class SingleOrchestrator:
                 finish_reason=completion.finish_reason,
                 usage=completion.usage,
                 delegations=delegations,
+                artifacts=artifacts,
             )
         except Exception as exc:
             reason = f"{type(exc).__name__}: {str(exc)[:500]}"
@@ -654,6 +689,17 @@ class SingleOrchestrator:
             RequestKind.TROUBLESHOOTING: "Cause candidates, checks and safe actions",
             RequestKind.CODE_CHANGE: "A change plan only; do not modify files in this phase",
         }[kind]
+
+    @staticmethod
+    def _artifact_title(kind: RequestKind, equipment_id: str | None) -> str:
+        label = {
+            RequestKind.QUESTION: "Question Result",
+            RequestKind.DOCUMENT_TASK: "Document Report",
+            RequestKind.CODE_ANALYSIS: "Code Analysis Report",
+            RequestKind.TROUBLESHOOTING: "Troubleshooting Report",
+            RequestKind.CODE_CHANGE: "Code Change Proposal",
+        }[kind]
+        return f"{equipment_id} {label}" if equipment_id else label
 
     @staticmethod
     def _validate(answer: str, evidence: Sequence[EvidenceReference]) -> None:

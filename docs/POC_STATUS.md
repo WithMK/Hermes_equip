@@ -4,7 +4,7 @@ Updated: 2026-09-28
 
 ## Overall
 
-Status: **Sequential specialist delegation implemented / target-PC integration pending**
+Status: **Phase 4A/4B controlled workflows implemented / target-PC integration pending**
 
 ## Completed
 
@@ -37,6 +37,8 @@ Status: **Sequential specialist delegation implemented / target-PC integration p
 | Specialist delegation | Pass | Fixed sequential routes, role-scoped evidence and parent/child Run lineage |
 | Specialist validation | Pass | Missing/unknown citation and endpoint failure stop child, parent and Task |
 | Code Development phase boundary | Pass | Read-only plan mode; write/build/Git mutation toolsets disabled |
+| Phase 4A Artifact | Pass | Exclusive Markdown report, SHA-256 and Task registration |
+| Phase 4B Proposal | Pass | Allowlisted work branch change, Build/Test and Base Diff without commit |
 | Build target allowlist | Pass | Empty/unlisted target fails closed |
 
 ## Security decision
@@ -51,7 +53,7 @@ Hermes upstream은 `--yolo` 세션에서 Plugin approval gate를 우회하도록
 ## Automated tests
 
 ```text
-Ran 64 tests
+Ran 77 tests
 OK
 ```
 
