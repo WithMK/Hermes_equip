@@ -11,7 +11,7 @@
 
 1. Foundation: correct service boundaries, CI and domain contracts.
 2. State Store: SQLite persistence for Task, Run, Evidence, Decision, Artifact and Checkpoint. **Completed**
-3. Single Orchestrator: classify, plan, retrieve, call C/M, validate and persist.
+3. Single Orchestrator: classify, plan, retrieve, call C/M, validate and persist. **Completed**
 4. Specialist delegation: document, code analysis, troubleshooting and code development.
 5. Production workflows: reports, code change, build/test, commit and merge request.
 6. Closed-network acceptance: clean offline install, recovery and negative security tests.

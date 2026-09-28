@@ -12,7 +12,7 @@ EquipmentRAG/ContextManager가 없어도 된다.
 | Python | Windows x64 `3.11.9`, 설치 디렉터리 내부에만 설치 |
 | Git | PortableGit `2.54.0`, 설치 디렉터리 내부에만 압축 해제 |
 | Hermes extras | `mcp`만 포함 |
-| Equipment PoC | `hermes-equipment-poc==0.2.0`, Plugin, Skills, 4개 Agent profile |
+| Equipment PoC | `hermes-equipment-poc==0.2.0`, Plugin, Skills, 5개 Agent profile |
 | 검증 | 전체 파일 SHA-256, 오프라인 재설치, `pip check`, Python import, Git 실행 |
 
 브라우저 자동화, unrestricted terminal, cron, Home Assistant, 실제 설비제어 및 production
@@ -106,7 +106,7 @@ cd .\HermesEquipmentOfflineBundle
 
 ## 4. 서비스 주소 설정
 
-설치 후 `%LOCALAPPDATA%\HermesEquipment\profiles` 아래 네 profile의 `config.yaml`에서
+설치 후 `%LOCALAPPDATA%\HermesEquipment\profiles` 아래 다섯 profile의 `config.yaml`에서
 모든 `REPLACE_...` 값을 변경한다.
 
 - `model.default`: C/M이 노출하는 Local LLM model 이름
@@ -140,6 +140,7 @@ PATH를 변경하지 않은 기본 설치에서는 생성된 launcher를 사용�
 
 ```powershell
 & "$env:LOCALAPPDATA\HermesEquipment\bin\hermes-equipment.cmd" -p document-agent
+& "$env:LOCALAPPDATA\HermesEquipment\bin\hermes-equipment.cmd" -p orchestrator-agent
 & "$env:LOCALAPPDATA\HermesEquipment\bin\hermes-equipment.cmd" -p code-analysis-agent
 & "$env:LOCALAPPDATA\HermesEquipment\bin\hermes-equipment.cmd" -p troubleshooting-agent
 & "$env:LOCALAPPDATA\HermesEquipment\bin\hermes-equipment.cmd" -p code-development-agent

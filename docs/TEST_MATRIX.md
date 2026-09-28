@@ -20,6 +20,10 @@
 | AO-03 | Orchestra | SQLite 재시작 | Task·근거·결정·산출물·Checkpoint 유지 |
 | AO-04 | Orchestra | 동시 상태 변경 | 오래된 version 변경 요청 거부 |
 | AO-05 | Orchestra | Terminal Task | 완료·실패 후 업무 상태 추가 변경 거부 |
+| AO-06 | Orchestra | 요청 분류 | 질문·문서·코드·Trouble·변경 유형 선택 |
+| AO-07 | Orchestra | 검색 없는 질문 | RAG를 호출하지 않고 C/M 응답 |
+| AO-08 | Orchestra | 근거 기반 응답 | 사용한 Source ID 인용 후 완료 |
+| AO-09 | Orchestra | 검색/검증 실패 | Task와 Agent Run이 `failed`로 영속화 |
 | ACL-01 | 권한 | Profile별 tool 목록 | 미허용 Tool schema 부재 |
 | ACL-02 | 권한 | Workspace 외부 접근 | fail-closed 거부 |
 | GIT-01 | Git | 작업 branch commit | 성공 및 audit 기록 |
