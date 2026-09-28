@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from ..http_client import JsonApiClient
+from .validation import validate_finish
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,9 @@ class ContextManagerChatClient:
         if not isinstance(message, dict) or not isinstance(message.get("content"), str):
             raise ValueError("ContextManager response has no message content")
         usage = response.get("usage")
+        validate_finish(str(choice.get("finish_reason", "")))
+        if message.get("tool_calls"):
+            raise ValueError("unresolved tool calls in completion")
         return ChatCompletionResult(
             content=message["content"].strip(),
             model=str(response.get("model", model)),

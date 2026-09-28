@@ -401,6 +401,39 @@ class AgentOrchestraStateStore:
             )
         return self.get_agent_run(run_id)
 
+    def interrupt_for_restart(self, task_id: str, *, expected_version: int) -> dict[str, Any]:
+        """Operator-only recovery after the worker has stopped, not a live takeover."""
+        with closing(self._connect()) as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT * FROM tasks WHERE task_id = ?", (task_id,)
+            ).fetchone()
+            if row is None:
+                raise StateNotFoundError(f"task not found: {task_id}")
+            if row["version"] != expected_version:
+                raise StateConflictError("task version conflict during restart")
+            if row["status"] in {"completed", "waiting_approval"}:
+                raise StateConflictError("completed/approval task cannot be restarted")
+            snapshots = connection.execute(
+                "SELECT payload_json FROM checkpoints WHERE task_id = ? ORDER BY id",
+                (task_id,),
+            ).fetchall()
+            request = next((payload["request"] for item in snapshots
+                if (payload := json.loads(item["payload_json"])).get("phase") == "request_saved"), None)
+            if request is None:
+                raise StateConflictError("no saved request; legacy tasks require a new explicit request")
+            if row["status"] != "failed":
+                connection.execute(
+                    "UPDATE tasks SET status='failed', failure_reason=?, version=version+1, updated_at=? WHERE task_id=?",
+                    ("Interrupted by explicit operator restart", _now(), task_id),
+                )
+            connection.execute(
+                "UPDATE agent_runs SET status='failed', error=?, completed_at=? WHERE task_id=? AND status='running'",
+                ("Interrupted by explicit operator restart", _now(), task_id),
+            )
+        request["restart_of"] = task_id
+        return request
+
     def finish_agent_run(
         self,
         run_id: str,

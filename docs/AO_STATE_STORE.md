@@ -80,6 +80,6 @@ store.save_checkpoint(task.task_id, {"next_step": "delegate_troubleshooting"})
 ## Backup and recovery
 
 Do not copy only the main database file while the service is writing. Stop A/O first or use the
-SQLite backup API so the main database and WAL state are captured consistently. Recovery must open
-the copied database, verify the schema version, load the latest Checkpoint and resume through the
-normal Task transition rules.
+SQLite backup API so the main database and WAL state are captured consistently. Database restore
+does not automatically resume execution. Operator-triggered cold restart from a saved request is
+documented in `AO_STABILIZATION.md`; last-step checkpoint continuation is not implemented.

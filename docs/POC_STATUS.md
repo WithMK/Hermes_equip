@@ -51,7 +51,7 @@ Hermes upstream은 `--yolo` 세션에서 Plugin approval gate를 우회하도록
 ## Automated tests
 
 ```text
-Ran 51 tests
+Ran 64 tests
 OK
 ```
 
@@ -83,6 +83,10 @@ Test coverage:
 - Build target allowlist
 
 ## Pending target-PC acceptance
+
+Milestones 1–3 hardening is documented in `AO_STABILIZATION.md`: complete-block evidence budgets,
+all-citation validation, incomplete-response rejection, Task-isolated specialist sessions, explicit
+decision reuse and operator-triggered cold restart. Automatic checkpoint continuation is NOT implemented.
 
 RAG와 C/M의 기존 직접 연동은 사용자 환경에서 확인됐다. 다음 단계에서는 A/O가 네 개의
 Hermes 전문 Agent API Server를 순차 호출하고 각 Profile이 C/M을 model provider로 사용하는
