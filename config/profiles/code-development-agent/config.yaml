@@ -1,0 +1,26 @@
+model: {provider: custom, default: REPLACE_MODEL_NAME, base_url: "http://REPLACE_CONTEXT_MANAGER_HOST:8091/v1", api_key: ""}
+toolsets: [skills, knowledge_taxonomy, equipment_rag_code, equipment_rag_document, workspace_read, workspace_write, git_read, git_write, git_merge_request, dotnet_build]
+agent:
+  disabled_toolsets: [terminal, code_execution, memory, browser, web, cronjob, homeassistant]
+plugins:
+  enabled: [hermes-equipment-platform]
+  entries:
+    hermes-equipment-platform:
+      settings:
+        workspace_root: REPLACE_WORKSPACE_ROOT
+        git: {approval_store: "REPLACE_APPROVAL_STORE_OUTSIDE_WORKSPACE"}
+        equipment_rag: {base_url: "http://REPLACE_EQUIPMENT_RAG_HOST:8765", retrieve_path: "/v1/retrieve", health_path: "/health"}
+        build:
+          allowed_targets: ["REPLACE_REPOSITORY/REPLACE_SOLUTION.sln"]
+          timeout_seconds: 600
+        audit: {path: "REPLACE_AUDIT_PATH"}
+gateway:
+  api_server: {enabled: true, host: 127.0.0.1, port: 8645, model_name: code-development-agent, max_concurrent_runs: 1}
+approvals:
+  mode: manual
+  unattended_mode: deny
+  deny:
+    - "git push --force*"
+    - "git push -f*"
+    - "*plc*write*"
+    - "*servo*on*"

@@ -1,0 +1,27 @@
+# Copy these settings under plugins.entries.hermes-equipment-platform.settings.
+# ContextManager is not a plugin tool. Configure its OpenAI-compatible `/v1`
+# URL as each profile's `model.base_url`.
+equipment_rag:
+  base_url: "http://REPLACE_EQUIPMENT_RAG_HOST:8765"
+  retrieve_path: "/v1/retrieve"
+  health_path: "/health"
+  timeout_seconds: 20
+  retry_count: 1
+  max_response_bytes: 2000000
+  api_key_header: "Authorization"
+  api_key_prefix: "Bearer "
+  taxonomy_document_types:
+    "00": "00 External"
+    "01": "01 Equipment Requirement / Specification"
+    "02": "02 Design Change / Risk"
+    "03": "03 Meeting / Issue"
+    "04": "04 Equipment Decision"
+    "05": "05 Test / Experiment / Result"
+    "06": "06 Operation / Trouble / Alarm"
+    "07": "07 Deliverable / Report"
+
+build:
+  # Paths are relative to workspace_root. Empty means every build/test is denied.
+  allowed_targets:
+    - "REPLACE_REPOSITORY/REPLACE_SOLUTION.sln"
+  timeout_seconds: 600
