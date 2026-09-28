@@ -4,7 +4,7 @@ Updated: 2026-09-28
 
 ## Overall
 
-Status: **Security PoC accepted / Agent Orchestra foundation in progress**
+Status: **Security PoC accepted / A/O State Store completed**
 
 ## Completed
 
@@ -32,6 +32,7 @@ Status: **Security PoC accepted / Agent Orchestra foundation in progress**
 | EquipmentRAG API alignment | Pass | `/health`, `/v1/retrieve`, `code/document/all` implemented |
 | Remote endpoint configuration | Pass | RAG Tool URL and C/M model URL are independently configurable |
 | A/O domain contract | Pass | Task transitions, Context Pack, evidence and artifact contracts |
+| A/O State Store | Pass | SQLite WAL, optimistic version, Task/Run/Evidence/Decision/Artifact/Checkpoint persistence |
 | Build target allowlist | Pass | Empty/unlisted target fails closed |
 
 ## Security decision
@@ -46,7 +47,7 @@ Hermes upstream은 `--yolo` 세션에서 Plugin approval gate를 우회하도록
 ## Automated tests
 
 ```text
-Ran 21 tests
+Ran 29 tests
 OK
 ```
 
@@ -65,6 +66,9 @@ Test coverage:
 - Multi-scope taxonomy merge
 - ContextManager is used as the OpenAI-compatible model provider, not a domain-context Tool
 - Bounded A/O task-state transitions
+- SQLite restart persistence and newer-schema rejection
+- Optimistic Task version conflict and terminal-state mutation denial
+- Agent Run parent scope, one-time completion and Checkpoint recovery
 - Build target allowlist
 
 ## Pending target-PC acceptance

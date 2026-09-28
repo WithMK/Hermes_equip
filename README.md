@@ -40,6 +40,7 @@ ContextManager의 실제 연결은
 
 - WithMK/EquipmentRAG의 `GET /health`, `POST /v1/retrieve` 계약 지원
 - EquipmentRAG `/v1/retrieve` Tool과 ContextManager `/v1/chat/completions` 모델 경로 분리
+- SQLite A/O State Store의 Task, Agent Run, 근거, 결정, 산출물과 Checkpoint 영속화
 - 코드/문서/통합 검색과 8계통 `document_type` 매핑
 - 4개 Agent별 Toolset 최소 권한
 - 제한형 File/Git/Build/Log Tool
@@ -77,6 +78,7 @@ py -m venv .venv
 
 상세 설정은 `docs/REMOTE_INTEGRATION.md`, 최종 시험 순서는 `docs/FINAL_ACCEPTANCE.md`를
 참고한다. A/O 단계별 구현 범위는 `docs/AO_DEVELOPMENT_PLAN.md`에 정리한다.
+State Store 운영 경계와 복구 방법은 `docs/AO_STATE_STORE.md`를 따른다.
 
 ## 폐쇄망 설치 번들
 

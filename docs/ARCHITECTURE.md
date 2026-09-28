@@ -13,6 +13,8 @@ RAG Adapter        Git/Build  Audit Hook
   |                    Tools
 EquipmentRAG
 
+Agent Orchestra -> SQLite State Store
+
 Hermes model provider -> ContextManager /v1/chat/completions -> llama.cpp/Ollama
 ```
 
@@ -21,6 +23,7 @@ Hermes model provider -> ContextManager /v1/chat/completions -> llama.cpp/Ollama
 | Component | Responsibility |
 |---|---|
 | Agent Orchestra | Project/Equipment/Task, planning, delegation, evidence and artifact state |
+| A/O State Store | Task, Agent Run, decision, evidence, artifact and recovery checkpoint |
 | Hermes | Agent loop, skills, tool dispatch and approval transport |
 | EquipmentRAG | Code/document retrieval, embedding, vector/hybrid search, evidence |
 | ContextManager | Bounded conversation, summary, token budget and Local LLM proxy |

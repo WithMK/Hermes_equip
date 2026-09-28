@@ -17,6 +17,9 @@
 | CTX-02 | Context | bounded conversation | 후속 질문이 끊기지 않고 토큰 한도 유지 |
 | AO-01 | Orchestra | Task 상태 전이 | 허용 경로만 성공하고 완료 후 변경 거부 |
 | AO-02 | Orchestra | Context Pack | Task·제약·근거 ID가 전문 Agent에 전달 |
+| AO-03 | Orchestra | SQLite 재시작 | Task·근거·결정·산출물·Checkpoint 유지 |
+| AO-04 | Orchestra | 동시 상태 변경 | 오래된 version 변경 요청 거부 |
+| AO-05 | Orchestra | Terminal Task | 완료·실패 후 업무 상태 추가 변경 거부 |
 | ACL-01 | 권한 | Profile별 tool 목록 | 미허용 Tool schema 부재 |
 | ACL-02 | 권한 | Workspace 외부 접근 | fail-closed 거부 |
 | GIT-01 | Git | 작업 branch commit | 성공 및 audit 기록 |
