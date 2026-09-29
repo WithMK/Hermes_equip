@@ -84,7 +84,7 @@ class MarkdownArtifactTests(unittest.TestCase):
             artifact = result.artifacts[0]
             path = Path(artifact.path)
             self.assertTrue(path.is_file())
-            self.assertTrue(path.is_relative_to(root / "artifacts"))
+            self.assertTrue(path.resolve().is_relative_to((root / "artifacts").resolve()))
             self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), artifact.sha256)
             self.assertEqual(store.get_task(result.task_id).artifacts, [artifact])
             self.assertIn("[D1]", path.read_text(encoding="utf-8"))
