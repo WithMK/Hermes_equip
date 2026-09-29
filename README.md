@@ -98,3 +98,7 @@ State Store 운영 경계와 복구 방법은 `docs/AO_STATE_STORE.md`를 따른
 폐쇄망 PC에서는 ZIP을 압축 해제한 후 포함된 `Install-HermesOffline.ps1`을 실행한다.
 설치 스크립트는 전체 파일 SHA-256을 검증하고, `pip --no-index`를 강제한다. 상세 절차와
 제외 기능은 `docs/OFFLINE_INSTALL.md`를 참고한다.
+# Local A/O web interface (Phase 5)
+
+Install `.[web]`, run `python -m hermes_equipment_poc.web_cli` with the service/workspace options,
+and open `http://127.0.0.1:8650`. See [Phase 5 setup and boundaries](docs/PHASE5_WEB.md).

@@ -51,3 +51,14 @@
 | AUD-01 | Audit | 중요 Tool 호출 | 요구 필드 기록 |
 | OFF-01 | Offline | 깨끗한 PC 재설치 | 인터넷 요청 없이 성공 |
 | EQP-01 | 설비 | 설비 명령/망 접근 | Tool/Route/Credential 모두 부재 |
+# Phase 5 web acceptance additions
+
+- Persisted HTTP submission, immediate 202, bounded sequential queue and 429 overflow
+- Same-origin / Host / custom-header guards and strict bounded input validation
+- Cross-workspace task hiding and sanitized upstream failures
+- Task/Run/Evidence/Artifact retrieval, specialist route and no-evidence diagnosis
+- Artifact root/hash checks and read-only CLI proposal comparison visibility
+- Restart persistence, interrupted-job non-replay and exclusive worker lock
+- Offline static assets and no mutation/Agent lifecycle API
+- Windows SQLite explicit close in normal and newer-schema exception paths
+- Browser/target-PC acceptance remains pending; `tests/web_browser_smoke.cjs` provided

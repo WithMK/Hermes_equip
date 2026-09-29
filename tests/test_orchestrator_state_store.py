@@ -3,6 +3,8 @@ from __future__ import annotations
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
+from unittest.mock import patch
 from pathlib import Path
 
 from hermes_equipment_poc.orchestrator import (
@@ -181,11 +183,45 @@ class AgentOrchestraStateStoreTests(unittest.TestCase):
 
     def test_newer_schema_is_rejected(self) -> None:
         path = Path(self.temp.name) / "future.db"
-        with sqlite3.connect(path) as connection:
+        with closing(sqlite3.connect(path)) as connection, connection:
             connection.execute("PRAGMA user_version = 999")
 
         with self.assertRaisesRegex(StateStoreError, "newer than supported"):
             AgentOrchestraStateStore(path)
+
+    def test_sqlite_connection_closed_after_schema_check(self) -> None:
+        original_connect = sqlite3.connect
+        connections = []
+
+        class TrackedConnection(sqlite3.Connection):
+            was_closed = False
+
+            def close(self):
+                super().close()
+                self.was_closed = True
+
+        def connect(*args, **kwargs):
+            connection = original_connect(*args, **kwargs, factory=TrackedConnection)
+            connections.append(connection)
+            return connection
+
+        for newer in (False, True):
+            path = Path(self.temp.name) / f'closed-{newer}.db'
+            if newer:
+                with closing(original_connect(path)) as connection, connection:
+                    connection.execute('PRAGMA user_version = 999')
+            with patch('hermes_equipment_poc.orchestrator.state_store.sqlite3.connect', side_effect=connect):
+                if newer:
+                    with self.assertRaises(StateStoreError):
+                        AgentOrchestraStateStore(path)
+                else:
+                    AgentOrchestraStateStore(path)
+            self.assertTrue(connections[-1].was_closed)
+            with self.assertRaises(sqlite3.ProgrammingError):
+                connections[-1].execute('SELECT 1')
+            moved = path.with_suffix('.renamed')
+            path.rename(moved)
+            moved.unlink()
 
 
 if __name__ == "__main__":
