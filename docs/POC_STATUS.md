@@ -1,10 +1,14 @@
 # Hermes Equipment Agent PoC Status
 
-Updated: 2026-09-28
+Updated: 2026-09-29
 
 ## Overall
 
-Status: **Phase 4A/4B controlled workflows implemented / target-PC integration pending**
+Status: **Phase 5 local API / read-only Agent registry / web UI implemented; target-PC web acceptance pending**
+
+Phase 5 validation: Linux API/unit tests, static JavaScript syntax and package checks. Browser
+smoke script is included but browser execution in Work was blocked by a failed Chromium download.
+Windows real-service/browser testing and offline installation remain pending. See `PHASE5_WEB.md`.
 
 ## Completed
 
@@ -53,7 +57,7 @@ Hermes upstream은 `--yolo` 세션에서 Plugin approval gate를 우회하도록
 ## Automated tests
 
 ```text
-Ran 77 tests
+Ran 93 tests
 OK
 ```
 

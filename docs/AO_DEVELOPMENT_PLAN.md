@@ -19,6 +19,15 @@
    - Commit, push and merge request: deferred; not authorized.
 6. Closed-network acceptance: clean offline install, recovery and negative security tests.
 
+## Phase 5 — Interaction & Control Layer
+
+Implemented in the Phase 5 feature branch: local HTTP submission/status API, bounded sequential
+worker with durable submission journal, read-only fixed Agent registry and offline browser UI.
+See `PHASE5_WEB.md` for setup, security boundaries and acceptance tests.
+4B execution remains operator CLI only; the UI displays registered comparison reports.
+Dynamic Agent lifecycle, LAN/multi-user service, equipment domain packs and dataset automation
+are deferred until this interface has passed real-service target-PC acceptance.
+
 ## Initial constraints
 
 - Sequential delegation only.

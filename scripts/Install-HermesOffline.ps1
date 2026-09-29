@@ -134,7 +134,7 @@ try {
     $env:PIP_NO_INDEX = "1"
     $env:PIP_FIND_LINKS = $wheelhouse
     & $venvPython -m pip install --disable-pip-version-check --no-index --find-links $wheelhouse `
-        "hermes-agent[mcp]==$hermesVersion" "hermes-equipment-poc==$pocVersion"
+        "hermes-agent[mcp]==$hermesVersion" "hermes-equipment-poc[web]==$pocVersion"
     Assert-LastExitCode "Offline package installation"
 }
 finally {
