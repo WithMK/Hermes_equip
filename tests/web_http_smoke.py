@@ -10,7 +10,7 @@ import httpx
 
 if __name__ == '__main__':
     root = Path(__file__).resolve().parents[1]
-    env = {**os.environ, 'PYTHONPATH': str(root / 'src'), 'AO_TEST_API_KEY': 'synthetic-smoke-key-only'}
+    env = {**os.environ, 'PYTHONPATH': str(root / 'src'), 'AO_TEST_API_KEY': 'synthetic-smoke-key-only', 'AO_TEST_MANAGEMENT': '1'}
     process = subprocess.Popen([sys.executable, str(root / 'tests/web_demo_server.py')],
                                env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
@@ -24,6 +24,11 @@ if __name__ == '__main__':
                 except httpx.TransportError:
                     pass
                 time.sleep(.05)
+            admin = {'X-AO-Request': '1'}
+            profile = client.post('/v1/agents', headers=admin, json={'agent_id': 'smoke-doc', 'name': 'Smoke document agent', 'role': 'document-agent'}).json()
+            trial = client.post('/v1/agents/smoke-doc/test', headers=admin, json={'version': profile['version']}).json()
+            assert trial['test_status'] == 'passed', trial
+            assert client.post('/v1/agents/smoke-doc/enabled', headers=admin, json={'version': trial['version'], 'enabled': True}).status_code == 200
             response = client.post('/v1/tasks', headers={'X-AO-Request':'1'}, json={
                 'objective':'문서 근거로 알람 분석', 'request_kind':'troubleshooting', 'create_artifact':True})
             assert response.status_code == 202, response.text
@@ -34,6 +39,7 @@ if __name__ == '__main__':
                     break
                 time.sleep(.05)
             assert data['status'] == 'completed', data
+            assert data['agent_profiles'][0]['agent_id'] == 'smoke-doc', data
             runs = client.get('/v1/tasks/' + task_id + '/runs').json()
             assert 'troubleshooting-agent' in [run['agent_name'] for run in runs]
             assert client.get(data['artifacts'][0]['download_url']).status_code == 200

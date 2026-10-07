@@ -30,6 +30,11 @@ are deferred until this interface has passed real-service target-PC acceptance.
 
 ## Initial constraints
 
+Version 0.6.0 adds persistent named Agent profiles over the existing role templates,
+test-before-activation, role-exclusive selection, configuration history and console CRUD.
+See `AGENT_MANAGEMENT.md`. Hermes process supervision, arbitrary workflow roles and parallel
+teams remain deferred.
+
 Version 0.5.0 adds the local OpenWebUI text-chat facade (`/v1/models`,
 `/v1/chat/completions`), Bearer authentication, full-history context and validated-result
 SSE streaming. See `OPENWEBUI.md`. Real target-PC OpenWebUI inference remains an acceptance step.

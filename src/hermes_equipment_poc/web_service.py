@@ -146,7 +146,8 @@ class TaskWorker:
 
 def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
                health_checks: dict | None = None, queue_capacity: int = 20,
-               openai_api_key: str = "", chat_wait_seconds: float = 600):
+               openai_api_key: str = "", chat_wait_seconds: float = 600,
+               agent_manager=None, managed_dispatcher=None):
     store = engine.state_store
     workspace = store.get_workspace(workspace_id)
     if workspace['domain_id'] != engine.domain.domain_id:
@@ -166,6 +167,17 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
 
     app = FastAPI(title='Hermes A/O Control', lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.worker = worker
+    if agent_manager is not None:
+        if managed_dispatcher is None:
+            raise ValueError('managed dispatcher is required for Agent management')
+        if agent_manager.workspace_id != workspace_id or managed_dispatcher.manager is not agent_manager:
+            raise ValueError('Agent manager workspace or dispatcher mismatch')
+        if engine.specialists is not None and engine.specialists is not managed_dispatcher:
+            raise ValueError('Agent management must configure the active dispatcher')
+        if set(agent_manager.templates) - set(engine.domain.allowed_agents):
+            raise ValueError('Agent templates exceed domain roles')
+        from .agent_api import install_agent_routes
+        install_agent_routes(app, agent_manager, managed_dispatcher)
     if openai_api_key:
         from .openai_api import install_openai_api
         install_openai_api(app, worker, openai_api_key, chat_wait_seconds)
@@ -212,21 +224,25 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
                 'domain_id': engine.domain.domain_id,
                 'subject_label': engine.domain.subject_label,
                 'allowed_request_kinds': engine.domain.allowed_kinds,
+                'agent_management_enabled': agent_manager is not None,
                 'specialists_enabled': engine.specialists is not None,
                 'artifacts_enabled': engine.artifact_store is not None}
 
     @app.get('/v1/agents')
     def agent_list():
-        return agents
+        return agent_manager.list() if agent_manager is not None else agents
 
     @app.get('/v1/agents/{agent_id}/health')
     def agent_health(agent_id: str):
-        if agent_id not in {a['agent_id'] for a in agents}:
+        current = agent_list()
+        entry = next((a for a in current if a['agent_id'] == agent_id), None)
+        if entry is None:
             raise HTTPException(404)
-        if agent_id not in health_checks:
+        role = entry['role'] if agent_manager is not None else agent_id
+        if role not in health_checks or (agent_manager is not None and not entry.get('enabled', False)):
             return {'status': 'disabled', 'inference_verified': False}
         try:
-            health_checks[agent_id]()
+            health_checks[role]()
             return {'status': 'reachable', 'inference_verified': False}
         except Exception:
             return {'status': 'unavailable', 'inference_verified': False}
@@ -257,6 +273,7 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
             value = json.loads(job['request'])
             data = {'task_id': task_id, 'objective': value['objective'], 'status': job['status'], 'evidence': [], 'artifacts': []}
         checkpoint = store.latest_checkpoint(task_id) if 'version' in data else None
+        data['agent_profiles'] = (checkpoint or {}).get('payload', {}).get('agent_profiles', [])
         data['answer'] = (checkpoint or {}).get('payload', {}).get('answer', '')
         data['submission_status'] = job['status'] if job else None
         data['error'] = job['error'] if job else None
