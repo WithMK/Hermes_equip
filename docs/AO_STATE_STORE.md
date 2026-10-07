@@ -38,7 +38,11 @@ development.
 - Agent Run history remains queryable in start order after restart.
 - A database with a newer schema version fails closed.
 
-## Schema version 1
+## Schema version 2
+
+Phase 6B adds persisted workspace/task `domain_id` and task `subject_id`. Version 1 migrates
+automatically to the equipment domain, copying existing equipment IDs into subject IDs.
+See `DOMAIN_PACKS.md` for upgrade/rollback and domain binding rules.
 
 | Table | Purpose |
 |---|---|

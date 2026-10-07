@@ -26,10 +26,12 @@ def main(argv=None):
     store = AgentOrchestraStateStore(args.state_db)
     try:
         workspace = store.get_workspace(args.workspace_id)
+        if workspace['domain_id'] != args.domain:
+            parser.error('stored workspace domain differs from --domain')
         if Path(workspace['root_path']).resolve() != root:
             parser.error('stored workspace root differs from --workspace-root')
     except StateNotFoundError:
-        store.create_workspace(args.workspace_id, name=args.workspace_name, root_path=str(root))
+        store.create_workspace(args.workspace_id, name=args.workspace_name, root_path=str(root), domain_id=args.domain)
     artifacts = MarkdownArtifactStore(args.artifact_root) if args.artifact_root else None
     if artifacts and artifacts.root.is_relative_to(root):
         parser.error('artifact root must be outside workspace')
@@ -42,6 +44,8 @@ def main(argv=None):
     chat = ContextManagerChatClient(client(args.context_manager_base_url, 'CONTEXT_MANAGER_API_KEY'), args.context_model, chat_path=args.context_chat_path, session_field=args.context_session_field)
     entries, checks = [], {}
     for agent in SpecialistAgent:
+        if args.domain == 'document' and agent is not SpecialistAgent.DOCUMENT:
+            continue
         prefix = agent.value.replace('-', '_')
         url = getattr(args, prefix + '_base_url')
         probe = client(url, 'HERMES_' + prefix.upper() + '_API_KEY', 3.0)
@@ -52,7 +56,7 @@ def main(argv=None):
             'health': 'not_checked'})
         if args.enable_specialists:
             checks[agent.value] = lambda c=probe: c.get('/v1/models')
-    engine = SingleOrchestrator(store, chat=chat, knowledge_provider=EquipmentRagKnowledgeProvider(rag), specialists=_specialist_dispatcher(args), artifact_store=artifacts)
+    engine = SingleOrchestrator(store, chat=chat, knowledge_provider=EquipmentRagKnowledgeProvider(rag), domain_id=args.domain, specialists=_specialist_dispatcher(args), artifact_store=artifacts)
     from .web_service import create_app
     import uvicorn
     uvicorn.run(create_app(engine, args.workspace_id, agents=entries, health_checks=checks),

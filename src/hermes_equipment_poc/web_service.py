@@ -25,6 +25,8 @@ class TaskInput(BaseModel):
     objective: str = Field(min_length=1, max_length=20000)
     session_id: str = Field(default="", max_length=500)
     equipment_id: str | None = Field(default=None, max_length=200)
+    domain_id: str | None = None
+    subject_id: str | None = Field(default=None, max_length=200)
     request_kind: str | None = None
     create_artifact: bool = False
     knowledge_scopes: list[str] = Field(default_factory=list, max_length=8)
@@ -95,9 +97,12 @@ class TaskWorker:
             workspace_id=self.workspace_id, task_id=task_id,
             objective=value.objective, session_id=value.session_id,
             equipment_id=value.equipment_id,
+            domain_id=value.domain_id,
+            subject_id=value.subject_id,
             request_kind=RequestKind(value.request_kind) if value.request_kind else None,
             create_artifact=value.create_artifact, knowledge_scopes=tuple(value.knowledge_scopes),
         )
+        request = self.engine.validate_request(request)
         if request.create_artifact and self.engine.artifact_store is None:
             raise ValueError('Artifact store is not configured')
         with closing(self.db()) as db, db:
@@ -142,6 +147,8 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
                health_checks: dict | None = None, queue_capacity: int = 20):
     store = engine.state_store
     workspace = store.get_workspace(workspace_id)
+    if workspace['domain_id'] != engine.domain.domain_id:
+        raise ValueError('workspace domain differs from configured domain')
     worker = TaskWorker(engine, workspace_id, Path(str(store.path) + '.web.db'), queue_capacity)
     static = Path(__file__).parent / 'web_static'
     agents = agents or []
@@ -197,6 +204,9 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
     @app.get('/v1/workspace')
     def workspace_info():
         return {'workspace_id': workspace_id, 'name': workspace['name'],
+                'domain_id': engine.domain.domain_id,
+                'subject_label': engine.domain.subject_label,
+                'allowed_request_kinds': engine.domain.allowed_kinds,
                 'specialists_enabled': engine.specialists is not None,
                 'artifacts_enabled': engine.artifact_store is not None}
 

@@ -1,5 +1,8 @@
 # Phase 6A — KnowledgeProvider boundary
 
+Phase 6B adds built-in [Domain Packs](DOMAIN_PACKS.md); the Task schema and domain routing
+limitations below describe the 6A baseline and are superseded by that document for 6B.
+
 This phase modularizes retrieval, not the entire equipment-oriented orchestrator.
 No EquipmentRAG or ContextManager server change and no state schema migration is required.
 

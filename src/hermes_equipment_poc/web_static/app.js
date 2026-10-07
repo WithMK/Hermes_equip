@@ -54,6 +54,11 @@ async function detail() {
 async function refresh() { await listTasks(); await detail(); text('connection', 'A/O 연결됨'); }
 async function start() {
   const config = await api('/v1/workspace'); text('workspace-name', config.name);
+  text('subject-label', `${config.subject_label || 'Equipment'} ID (선택)`);
+  $('equipment').placeholder = config.domain_id === 'document' ? '예: 구매절차' : '예: E-024';
+  for (const option of Array.from($('kind').options)) {
+    if (option.value && !config.allowed_request_kinds.includes(option.value)) option.remove();
+  }
   text('mode', `전문 Agent: ${config.specialists_enabled ? '활성' : '비활성 — C/M 직접 호출'} · 단일 순차 작업 큐`);
   $('artifact').disabled = !config.artifacts_enabled;
   $('session').value = localStorage.getItem('ao-session') || '';
@@ -70,7 +75,7 @@ $('task-form').addEventListener('submit', async event => {
   try {
     if (!$('session').value.trim()) $('session').value = `ui-${crypto.randomUUID()}`;
     localStorage.setItem('ao-session', $('session').value);
-    const result = await api('/v1/tasks', { method: 'POST', body: JSON.stringify({objective: $('objective').value, session_id: $('session').value, equipment_id: $('equipment').value.trim() || null, request_kind: $('kind').value || null, create_artifact: $('artifact').checked}) });
+    const result = await api('/v1/tasks', { method: 'POST', body: JSON.stringify({objective: $('objective').value, session_id: $('session').value, subject_id: $('equipment').value.trim() || null, request_kind: $('kind').value || null, create_artifact: $('artifact').checked}) });
     selected = result.task_id; localStorage.setItem('ao-task', selected); await refresh();
   } catch (e) { showError(e); } finally { $('submit').disabled = false; }
 });

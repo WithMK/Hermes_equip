@@ -11,7 +11,7 @@ from uuid import uuid4
 from .models import ArtifactReference, EvidenceReference, TaskRecord, TaskStatus
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 _TERMINAL_TASK_STATUSES = {TaskStatus.COMPLETED, TaskStatus.FAILED}
 _AGENT_RUN_STATUSES = {"running", "completed", "failed"}
 
@@ -71,12 +71,22 @@ class AgentOrchestraStateStore:
                 )
             if current == 0:
                 connection.executescript(_SCHEMA_V1)
+                connection.execute("PRAGMA user_version = 1")
+                current = 1
+            if current == 1:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute("ALTER TABLE workspaces ADD COLUMN domain_id TEXT NOT NULL DEFAULT 'equipment'")
+                connection.execute("ALTER TABLE tasks ADD COLUMN domain_id TEXT NOT NULL DEFAULT 'equipment'")
+                connection.execute("ALTER TABLE tasks ADD COLUMN subject_id TEXT")
+                connection.execute("UPDATE tasks SET subject_id = equipment_id")
                 connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     def create_workspace(
-        self, workspace_id: str, *, name: str, root_path: str = ""
+        self, workspace_id: str, *, name: str, root_path: str = "", domain_id: str = "equipment"
     ) -> dict[str, Any]:
         workspace_id = _required(workspace_id, "workspace_id")
+        from ..domains import get_domain
+        get_domain(domain_id)
         name = _required(name, "name")
         created_at = _now()
         try:
@@ -84,10 +94,10 @@ class AgentOrchestraStateStore:
                 connection.execute(
                     """
                     INSERT INTO workspaces(
-                        workspace_id, name, root_path, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?)
+                        workspace_id, name, root_path, created_at, updated_at, domain_id
+                    ) VALUES (?, ?, ?, ?, ?, ?)
                     """,
-                    (workspace_id, name, root_path.strip(), created_at, created_at),
+                    (workspace_id, name, root_path.strip(), created_at, created_at, domain_id),
                 )
         except sqlite3.IntegrityError as exc:
             raise StateConflictError(f"workspace already exists: {workspace_id}") from exc
@@ -104,6 +114,8 @@ class AgentOrchestraStateStore:
         return dict(row)
 
     def create_task(self, task: TaskRecord) -> TaskRecord:
+        if self.get_workspace(task.workspace_id)["domain_id"] != task.domain_id:
+            raise ValueError("task domain differs from workspace")
         if task.status is not TaskStatus.RECEIVED or task.version != 0:
             raise ValueError("new tasks must start at received with version 0")
         created_at = _now()
@@ -113,8 +125,9 @@ class AgentOrchestraStateStore:
                     """
                     INSERT INTO tasks(
                         task_id, workspace_id, objective, equipment_id, status,
-                        assigned_agent, failure_reason, version, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+                        assigned_agent, failure_reason, version, created_at, updated_at,
+                        domain_id, subject_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
                     """,
                     (
                         task.task_id,
@@ -126,6 +139,8 @@ class AgentOrchestraStateStore:
                         task.failure_reason,
                         created_at,
                         created_at,
+                        task.domain_id,
+                        task.subject_id if task.subject_id is not None else task.equipment_id,
                     ),
                 )
         except sqlite3.IntegrityError as exc:
@@ -179,6 +194,8 @@ class AgentOrchestraStateStore:
             version=row["version"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            domain_id=row["domain_id"],
+            subject_id=row["subject_id"],
         )
 
     def list_tasks(
