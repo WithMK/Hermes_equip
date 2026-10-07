@@ -91,12 +91,13 @@ class TaskWorker:
             self.thread.join()  # adapter timeouts bound in-flight request duration
         self.lock_path.unlink(missing_ok=True)
 
-    def submit(self, value: TaskInput):
+    def submit(self, value: TaskInput, *, conversation=(), temperature=0.1, max_tokens=1200):
         task_id = 'web-' + uuid4().hex
         request = OrchestratorRequest(
             workspace_id=self.workspace_id, task_id=task_id,
             objective=value.objective, session_id=value.session_id,
             equipment_id=value.equipment_id,
+            conversation=conversation, temperature=temperature, max_tokens=max_tokens,
             domain_id=value.domain_id,
             subject_id=value.subject_id,
             request_kind=RequestKind(value.request_kind) if value.request_kind else None,
@@ -144,7 +145,8 @@ class TaskWorker:
 
 
 def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
-               health_checks: dict | None = None, queue_capacity: int = 20):
+               health_checks: dict | None = None, queue_capacity: int = 20,
+               openai_api_key: str = "", chat_wait_seconds: float = 600):
     store = engine.state_store
     workspace = store.get_workspace(workspace_id)
     if workspace['domain_id'] != engine.domain.domain_id:
@@ -164,6 +166,9 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
 
     app = FastAPI(title='Hermes A/O Control', lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.worker = worker
+    if openai_api_key:
+        from .openai_api import install_openai_api
+        install_openai_api(app, worker, openai_api_key, chat_wait_seconds)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', '[::1]'])
 
     @app.middleware('http')
@@ -173,7 +178,7 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
         if (origin and origin != expected) or request.headers.get('sec-fetch-site') == 'cross-site':
             return JSONResponse({'detail': 'Cross-origin access forbidden'}, status_code=403)
         if request.method not in {'GET', 'HEAD'}:
-            if request.headers.get('x-ao-request') != '1':
+            if request.url.path != '/v1/chat/completions' and request.headers.get('x-ao-request') != '1':
                 return JSONResponse({'detail': 'X-AO-Request required'}, status_code=403)
             body = bytearray()
             async for chunk in request.stream():

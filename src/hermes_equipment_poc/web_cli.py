@@ -59,7 +59,8 @@ def main(argv=None):
     engine = SingleOrchestrator(store, chat=chat, knowledge_provider=EquipmentRagKnowledgeProvider(rag), domain_id=args.domain, specialists=_specialist_dispatcher(args), artifact_store=artifacts)
     from .web_service import create_app
     import uvicorn
-    uvicorn.run(create_app(engine, args.workspace_id, agents=entries, health_checks=checks),
+    uvicorn.run(create_app(engine, args.workspace_id, agents=entries, health_checks=checks,
+                          openai_api_key=os.environ.get('AO_API_KEY', '')),
                 host='127.0.0.1', port=args.port, workers=1, proxy_headers=False)
 
 

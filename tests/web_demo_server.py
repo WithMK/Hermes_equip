@@ -1,5 +1,6 @@
 """Synthetic browser-test server. Not a production service or integration proof."""
 import tempfile
+import os
 from pathlib import Path
 
 import uvicorn
@@ -18,5 +19,5 @@ if __name__ == '__main__':
         store.create_workspace('demo', name='Browser test · synthetic services', root_path=str(workspace))
         engine = SingleOrchestrator(store, FakeRag(), FakeChat(), specialists=FakeSpecialists(), artifact_store=MarkdownArtifactStore(root / 'artifacts'))
         agents = [{'agent_id': name, 'endpoint': 'synthetic fixture', 'enabled': True, 'policy': 'Browser test only'} for name in ('document-agent','code-analysis-agent','troubleshooting-agent','code-development-agent')]
-        app = create_app(engine, 'demo', agents=agents)
+        app = create_app(engine, 'demo', agents=agents, openai_api_key=os.environ.get('AO_TEST_API_KEY', ''))
         uvicorn.run(app, host='127.0.0.1', port=18650)

@@ -82,5 +82,6 @@ analysis; check the UI labels/options, citations, downloaded Markdown report, sa
 follow-up through C/M/llama.cpp and history after restart. Work tests use synthetic services;
 they do not establish real model or browser acceptance.
 
-Dynamic Agent creation/deletion, arbitrary Domain Pack installation, OpenWebUI-compatible
-chat facade, multi-provider fusion and dataset automation remain later phases.
+Version 0.5.0 adds the [OpenWebUI-compatible text-chat facade](OPENWEBUI.md).
+Dynamic Agent creation/deletion, arbitrary Domain Pack installation, multi-provider fusion
+and dataset automation remain later phases.

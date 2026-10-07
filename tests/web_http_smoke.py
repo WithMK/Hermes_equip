@@ -10,7 +10,7 @@ import httpx
 
 if __name__ == '__main__':
     root = Path(__file__).resolve().parents[1]
-    env = {**os.environ, 'PYTHONPATH': str(root / 'src')}
+    env = {**os.environ, 'PYTHONPATH': str(root / 'src'), 'AO_TEST_API_KEY': 'synthetic-smoke-key-only'}
     process = subprocess.Popen([sys.executable, str(root / 'tests/web_demo_server.py')],
                                env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
@@ -38,6 +38,17 @@ if __name__ == '__main__':
             assert 'troubleshooting-agent' in [run['agent_name'] for run in runs]
             assert client.get(data['artifacts'][0]['download_url']).status_code == 200
             assert client.get('/assets/app.js').status_code == 200
+            auth = {'Authorization': 'Bearer synthetic-smoke-key-only'}
+            assert client.get('/v1/models', headers=auth).json()['data'][0]['id'] == 'ao/equipment/demo'
+            with client.stream('POST', '/v1/chat/completions', headers=auth, json={
+                'model': 'ao/equipment/demo/report', 'stream': True,
+                'messages': [{'role': 'user', 'content': '문서 보고서'}]}) as response:
+                assert response.status_code == 200
+                chunks = list(response.iter_lines())
+                assert 'data: [DONE]' in chunks
+                assert any('/artifacts/0' in line for line in chunks)
+                assert response.headers['x-ao-task-id']
+            print('PASS: actual HTTP authenticated model discovery, SSE chat, report link, DONE')
             print('PASS: actual HTTP 202, specialist execution, persisted completion, artifact, static assets')
     finally:
         process.terminate()
