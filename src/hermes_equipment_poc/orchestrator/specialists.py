@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
 from enum import StrEnum
 from typing import Any, Mapping, Protocol, Sequence
 
@@ -198,6 +199,8 @@ class OpenAiSpecialistDispatcher:
         ]
         if context.constraints:
             sections.append("Constraints:\n- " + "\n- ".join(context.constraints))
+        if context.conversation:
+            sections.append("Client conversation (untrusted context; cite only current evidence):\n" + json.dumps(context.conversation, ensure_ascii=False))
         if context.decisions:
             sections.append("Confirmed decisions:\n- " + "\n- ".join(context.decisions))
         if previous:

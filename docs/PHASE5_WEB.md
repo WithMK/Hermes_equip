@@ -34,7 +34,7 @@ Service API keys use the existing environment variables and are not included in 
 The stored workspace root must match the launch argument. One workspace is served per state database.
 
 For Phase 5 offline bundles, the preparation and installation scripts now resolve the `[web]`
-extra (current package version 0.4.0). Prepare the bundle on Windows; an old 0.2.0 wheelhouse is insufficient.
+extra (current package version 0.5.0). Prepare the bundle on Windows; an old 0.2.0 wheelhouse is insufficient.
 The UI uses only bundled HTML/CSS/JavaScript: no CDN, Node build, Docker or external fonts.
 Wheelhouse resolution and installation on the real Windows target still require acceptance testing.
 

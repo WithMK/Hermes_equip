@@ -30,6 +30,10 @@ are deferred until this interface has passed real-service target-PC acceptance.
 
 ## Initial constraints
 
+Version 0.5.0 adds the local OpenWebUI text-chat facade (`/v1/models`,
+`/v1/chat/completions`), Bearer authentication, full-history context and validated-result
+SSE streaming. See `OPENWEBUI.md`. Real target-PC OpenWebUI inference remains an acceptance step.
+
 Phase 6B implements built-in equipment/document Domain Packs, operator-bound workspaces,
 generic subject IDs with equipment compatibility, domain-aware prompts and UI request kinds.
 See `DOMAIN_PACKS.md`. Real-service target-PC acceptance remains pending.

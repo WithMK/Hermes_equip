@@ -101,6 +101,9 @@ State Store 운영 경계와 복구 방법은 `docs/AO_STATE_STORE.md`를 따른
 
 ## Local A/O web interface (Phase 5)
 
+Version 0.5.0 adds [OpenWebUI text-chat integration](docs/OPENWEBUI.md).
+Set `AO_API_KEY` and connect OpenWebUI to `http://127.0.0.1:8650/v1`.
+
 Phase 6B supports `--domain equipment` (default) and `--domain document` for general document
 analysis and reports. See [Domain Packs and migration](docs/DOMAIN_PACKS.md).
 
