@@ -18,7 +18,7 @@ py -m hermes_equipment_poc.web_cli `
   --artifact-root C:\ProgramData\HermesEquipment\artifacts `
   --equipment-rag-base-url http://127.0.0.1:8765 `
   --context-manager-base-url http://127.0.0.1:8091 `
-  --context-model REPLACE_MODEL_NAME `
+  --context-model Qwen3.8-27B-UD-Q5_K_XL.gguf `
   --enable-specialists
 ```
 
@@ -26,6 +26,10 @@ Open **http://127.0.0.1:8650**. Override the four specialist URLs with the same
 `--document-agent-base-url`, `--code-analysis-agent-base-url`,
 `--troubleshooting-agent-base-url`, `--code-development-agent-base-url` CLI options.
 Hermes specialist servers must already be running; this service does not start them.
+The intended inference route is A/O → ContextManager → llama.cpp (not Ollama).
+The model above is the CLI default; if llama.cpp uses `--alias`, pass that served model ID
+with `--context-model` and configure the same upstream model in the Hermes profiles.
+See [KnowledgeProvider integration](KNOWLEDGE_PROVIDER.md) for the retrieval boundary.
 Service API keys use the existing environment variables and are not included in registry responses.
 The stored workspace root must match the launch argument. One workspace is served per state database.
 

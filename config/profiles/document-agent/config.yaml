@@ -1,6 +1,7 @@
 model:
   provider: custom
-  default: REPLACE_MODEL_NAME
+  # llama.cpp upstream via ContextManager; replace with server --alias if configured.
+  default: Qwen3.8-27B-UD-Q5_K_XL.gguf
   base_url: http://REPLACE_CONTEXT_MANAGER_HOST:8091/v1
   api_key: ""
 

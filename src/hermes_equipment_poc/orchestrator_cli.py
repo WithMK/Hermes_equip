@@ -8,6 +8,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .http_client import JsonApiClient
+from .knowledge import EquipmentRagKnowledgeProvider
 from .orchestrator import (
     AgentOrchestraStateStore,
     ContextManagerChatClient,
@@ -50,7 +51,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--equipment-rag-retrieve-path", default="/v1/retrieve")
     parser.add_argument("--context-manager-base-url", required=True)
     parser.add_argument("--context-chat-path", default="/v1/chat/completions")
-    parser.add_argument("--context-model", required=True)
+    parser.add_argument(
+        "--context-model", default="Qwen3.8-27B-UD-Q5_K_XL.gguf",
+        help="Model ID forwarded through ContextManager to llama.cpp; override for server --alias",
+    )
     parser.add_argument("--context-session-field", default="session_id")
     parser.add_argument(
         "--enable-specialists",
@@ -159,8 +163,8 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("artifact root must be outside workspace root")
         orchestrator = SingleOrchestrator(
             store,
-            rag,
-            chat,
+            chat=chat,
+            knowledge_provider=EquipmentRagKnowledgeProvider(rag),
             specialists=_specialist_dispatcher(args),
             artifact_store=artifact_store,
         )

@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from .http_client import JsonApiClient
+from .knowledge import EquipmentRagKnowledgeProvider
 from .orchestrator import (AgentOrchestraStateStore, ContextManagerChatClient,
     MarkdownArtifactStore, SingleOrchestrator, SpecialistAgent, StateNotFoundError)
 from .orchestrator_cli import _parser, _specialist_dispatcher
@@ -46,12 +47,12 @@ def main(argv=None):
         probe = client(url, 'HERMES_' + prefix.upper() + '_API_KEY', 3.0)
         entries.append({'agent_id': agent.value, 'role': agent.value,
             'endpoint': url, 'enabled': args.enable_specialists,
-            'model_route': 'Hermes profile → ContextManager',
+            'model_route': 'Hermes profile → ContextManager → llama.cpp',
             'policy': 'Read-only profile expected; live tool permissions not verified',
             'health': 'not_checked'})
         if args.enable_specialists:
             checks[agent.value] = lambda c=probe: c.get('/v1/models')
-    engine = SingleOrchestrator(store, rag, chat, specialists=_specialist_dispatcher(args), artifact_store=artifacts)
+    engine = SingleOrchestrator(store, chat=chat, knowledge_provider=EquipmentRagKnowledgeProvider(rag), specialists=_specialist_dispatcher(args), artifact_store=artifacts)
     from .web_service import create_app
     import uvicorn
     uvicorn.run(create_app(engine, args.workspace_id, agents=entries, health_checks=checks),

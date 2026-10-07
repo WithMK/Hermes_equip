@@ -30,6 +30,10 @@ are deferred until this interface has passed real-service target-PC acceptance.
 
 ## Initial constraints
 
+Phase 6A implementation: read-only KnowledgeProvider contract and EquipmentRAG adapter,
+legacy compatibility, and llama.cpp model configuration. See `KNOWLEDGE_PROVIDER.md`.
+Full Domain Packs, generic task schemas and multi-provider routing remain deferred.
+
 - Sequential delegation only.
 - No dynamic agent creation or free-form P2P messaging.
 - No arbitrary terminal, equipment control or production deployment.

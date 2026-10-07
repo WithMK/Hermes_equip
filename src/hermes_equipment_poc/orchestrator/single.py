@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 from uuid import uuid4
 
+from ..knowledge import (EquipmentRagKnowledgeProvider, KnowledgeProvider,
+                         KnowledgeQuery, RetrievalProvider)
+
 from .artifacts import ArtifactStore
 from .chat_client import ChatCompletionResult
 from .models import ArtifactReference, ContextPack, EvidenceReference, TaskRecord, TaskStatus
@@ -105,20 +108,6 @@ class OrchestratorResult:
     artifacts: tuple[ArtifactReference, ...] = ()
 
 
-class RetrievalProvider(Protocol):
-    def retrieve(
-        self,
-        *,
-        query: str,
-        source_type: str,
-        top_k: int,
-        include_content: bool = False,
-        code_filters: dict[str, Any] | None = None,
-        document_filters: dict[str, Any] | None = None,
-        knowledge_scopes: list[str] | None = None,
-    ) -> dict[str, Any]: ...
-
-
 class ChatProvider(Protocol):
     def complete(
         self,
@@ -204,9 +193,10 @@ class SingleOrchestrator:
     def __init__(
         self,
         state_store: AgentOrchestraStateStore,
-        rag: RetrievalProvider,
-        chat: ChatProvider,
+        rag: RetrievalProvider | None = None,
+        chat: ChatProvider | None = None,
         *,
+        knowledge_provider: KnowledgeProvider | None = None,
         classifier: RequestClassifier | None = None,
         specialists: SpecialistDispatcher | None = None,
         delegation_planner: SequentialDelegationPlanner | None = None,
@@ -215,14 +205,34 @@ class SingleOrchestrator:
     ):
         if evidence_character_budget < 1000:
             raise ValueError("evidence_character_budget must be at least 1000")
+        if chat is None:
+            raise ValueError("chat provider is required")
+        if (rag is None) == (knowledge_provider is None):
+            raise ValueError("provide exactly one of rag or knowledge_provider")
         self.state_store = state_store
-        self.rag = rag
+        self._rag = rag
+        if knowledge_provider is not None:
+            self.knowledge_provider = knowledge_provider
+        else:
+            assert rag is not None
+            self.knowledge_provider = EquipmentRagKnowledgeProvider(rag)
         self.chat = chat
         self.classifier = classifier or RequestClassifier()
         self.specialists = specialists
         self.delegation_planner = delegation_planner or SequentialDelegationPlanner()
         self.artifact_store = artifact_store
         self.evidence_character_budget = evidence_character_budget
+
+    @property
+    def rag(self) -> RetrievalProvider | None:
+        return self._rag
+
+    @rag.setter
+    def rag(self, value: RetrievalProvider | None) -> None:
+        # Preserve legacy integrations that replace the client after construction.
+        self._rag = value
+        if value is not None:
+            self.knowledge_provider = EquipmentRagKnowledgeProvider(value)
 
     def run(self, request: OrchestratorRequest) -> OrchestratorResult:
         inherited = []
@@ -282,16 +292,14 @@ class SingleOrchestrator:
                     TaskStatus.RETRIEVING,
                     expected_version=task.version,
                 )
-                response = self.rag.retrieve(
+                response = self.knowledge_provider.search(KnowledgeQuery(
                     query=plan.query,
                     source_type=plan.source_type,
                     top_k=request.top_k,
-                    include_content=True,
-                    code_filters={"equipment": request.equipment_id},
-                    document_filters={"equipment": request.equipment_id},
-                    knowledge_scopes=list(plan.knowledge_scopes),
-                )
-                sources = self._sources(response)
+                    subject_id=request.equipment_id,
+                    scopes=plan.knowledge_scopes,
+                ))
+                sources = [dict(source) for source in response.sources[:request.top_k]]
                 sources = bounded_sources(sources, self.evidence_character_budget)
                 evidence = self._evidence(sources, plan.source_type)
                 for item in evidence:
@@ -300,6 +308,7 @@ class SingleOrchestrator:
                     task_id,
                     {
                         "phase": "retrieved",
+                        "provider_id": response.provider_id,
                         "source_ids": [item.source_id for item in evidence],
                     },
                 )
@@ -599,24 +608,6 @@ class SingleOrchestrator:
         return RetrievalPlan(False, query=query)
 
     @staticmethod
-    def _sources(response: Mapping[str, Any]) -> list[dict[str, Any]]:
-        raw = response.get("sources", [])
-        if not isinstance(raw, list):
-            raise ValueError("EquipmentRAG sources must be an array")
-        normalized: list[dict[str, Any]] = []
-        for index, raw_item in enumerate(raw, 1):
-            if not isinstance(raw_item, dict):
-                continue
-            item = dict(raw_item)
-            item["source_id"] = str(item.get("source_id") or f"S{index}").strip()
-            source_type = str(item.get("source_type") or "").strip()
-            if source_type not in {"code", "document"}:
-                source_type = "document" if "text" in item else "code"
-            item["source_type"] = source_type
-            normalized.append(item)
-        return normalized
-
-    @staticmethod
     def _evidence(
         sources: Sequence[Mapping[str, Any]], planned_source_type: str
     ) -> list[EvidenceReference]:
@@ -625,7 +616,7 @@ class SingleOrchestrator:
         for index, source in enumerate(sources, 1):
             source_id = str(source.get("source_id") or f"S{index}").strip()
             if source_id in seen:
-                raise ValueError(f"duplicate EquipmentRAG source_id: {source_id}")
+                raise ValueError(f"duplicate knowledge source_id: {source_id}")
             seen.add(source_id)
             source_type = str(source.get("source_type") or planned_source_type)
             if source_type == "all":
