@@ -1,4 +1,5 @@
-model: {provider: custom, default: REPLACE_MODEL_NAME, base_url: "http://REPLACE_CONTEXT_MANAGER_HOST:8091/v1", api_key: ""}
+# llama.cpp upstream via ContextManager; replace default with server --alias if configured.
+model: {provider: custom, default: Qwen3.8-27B-UD-Q5_K_XL.gguf, base_url: "http://REPLACE_CONTEXT_MANAGER_HOST:8091/v1", api_key: ""}
 toolsets: [skills, knowledge_taxonomy, workspace_read, git_read, log_read]
 agent:
   disabled_toolsets: [terminal, code_execution, equipment_rag_code, equipment_rag_document, workspace_write, git_write, git_merge_request, dotnet_build, memory, browser, web]
