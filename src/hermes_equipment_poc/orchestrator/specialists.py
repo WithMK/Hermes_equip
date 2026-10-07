@@ -24,6 +24,8 @@ class SpecialistOutcome:
     model: str = ""
     finish_reason: str = ""
     usage: dict[str, Any] = field(default_factory=dict)
+    agent_id: str = ""
+    agent_version: int | None = None
 
 
 class SpecialistDispatcher(Protocol):

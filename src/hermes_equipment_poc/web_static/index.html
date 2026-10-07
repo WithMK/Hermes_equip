@@ -4,9 +4,18 @@
 <body>
 <header><div><span class="eyebrow">HERMES / LOCAL CONTROL</span><h1>Agent Orchestra</h1></div><span id="connection" role="status">연결 확인 중</span></header>
 <main>
-<aside><h2>작업 이력</h2><button id="refresh" type="button">새로고침</button><div id="tasks"></div><h2>전문 Agent</h2><p class="muted">등록 정보는 읽기 전용입니다.</p><div id="agents"></div></aside>
+<aside><h2>작업 이력</h2><button id="refresh" type="button">새로고침</button><div id="tasks"></div><h2>전문 Agent</h2><p id="agent-mode" class="muted">등록 정보를 불러오는 중입니다.</p><button id="agent-new" type="button" hidden>Agent 등록</button><div id="agents"></div></aside>
 <section class="workspace">
 <div class="intro"><span class="eyebrow">WORKSPACE</span><h2 id="workspace-name">불러오는 중</h2><p id="mode"></p></div>
+<form id="agent-editor" hidden>
+<h2 id="agent-editor-title">Agent 등록</h2>
+<p>역할별로 한 Agent만 활성화됩니다. 저장한 설정은 시험 호출 후 활성화해주세요. 수정하면 기존 활성 상태가 해제됩니다.</p>
+<div class="fields"><label>Agent ID<input id="agent-id" required maxlength="64" pattern="[a-z0-9][a-z0-9_-]{0,63}"></label><label>이름<input id="agent-name" required maxlength="120"></label><label>역할<select id="agent-role"></select></label></div>
+<label>추가 역할 지침<textarea id="agent-instructions" rows="5" maxlength="4000" placeholder="예: 근거와 가설을 구분하고 확인 순서를 표로 작성합니다."></textarea></label>
+<p class="muted">모델·연결 서버는 선택한 역할의 서버 설정을 사용합니다. 여기서 서버 프로세스나 도구 권한을 변경하지 않습니다.</p>
+<div class="form-footer"><button id="agent-cancel" type="button">닫기</button><button id="agent-save" type="submit">저장</button></div>
+</form>
+<section id="agent-history-panel" hidden><h2>Agent 변경 이력</h2><button id="agent-history-close" type="button">닫기</button><pre id="agent-history"></pre></section>
 <form id="task-form">
 <div class="fields"><label>Session ID<input id="session" maxlength="500" placeholder="비어 있으면 새 세션 생성"></label><label><span id="subject-label">Equipment ID (선택)</span><input id="equipment" maxlength="200" placeholder="예: E-024"></label><label>요청 유형<select id="kind"><option value="">자동 분류</option><option value="question">일반 질문</option><option value="document_task">문서 분석</option><option value="code_analysis">코드 분석</option><option value="troubleshooting">트러블슈팅</option><option value="code_change">코드 변경 계획 (읽기 전용)</option></select></label></div>
 <label for="objective">어떤 작업을 수행할까요?</label><textarea id="objective" rows="4" maxlength="20000" required placeholder="문서와 코드를 확인하고, 근거를 들어 분석해주세요."></textarea>
