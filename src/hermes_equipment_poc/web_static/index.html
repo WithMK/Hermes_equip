@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Hermes · Agent Orchestra</title><link rel="stylesheet" href="/assets/app.css"><script src="/assets/app.js" defer></script></head>
+<body>
+<header><div><span class="eyebrow">HERMES / LOCAL CONTROL</span><h1>Agent Orchestra</h1></div><span id="connection" role="status">연결 확인 중</span></header>
+<main>
+<aside><h2>작업 이력</h2><button id="refresh" type="button">새로고침</button><div id="tasks"></div><h2>전문 Agent</h2><p class="muted">등록 정보는 읽기 전용입니다.</p><div id="agents"></div></aside>
+<section class="workspace">
+<div class="intro"><span class="eyebrow">WORKSPACE</span><h2 id="workspace-name">불러오는 중</h2><p id="mode"></p></div>
+<form id="task-form">
+<div class="fields"><label>Session ID<input id="session" maxlength="500" placeholder="비어 있으면 새 세션 생성"></label><label>Equipment ID (선택)<input id="equipment" maxlength="200" placeholder="예: E-024"></label><label>요청 유형<select id="kind"><option value="">자동 분류</option value="question">일반 질문</option><option value="document_task">문서 분석</option><option value="code_analysis">코드 분석</option><option value="troubleshooting">트러블슈팅</option><option value="code_change">코드 변경 계획 (읽기 전용)</option></select></label></div>
+<label for="objective">어떤 작업을 수행할까요?</label><textarea id="objective" rows="4" maxlength="20000" required placeholder="문서와 코드를 확인하고, 근거를 들어 분석해주세요."></textarea>
+<div class="form-footer"><label><input id="artifact" type="checkbox"> Markdown 산출물 생성</label><button id="submit" type="submit">작업 실행 →</button></div>
+</form>
+<p id="error" role="alert"></p>
+<section id="detail" hidden><div class="detail-header"><h2>실행 결과</h2><span id="status"></span></div><p id="task-id" class="muted"></p><h3>요청</h3><pre id="request"></pre><p id="diagnostic"></p><h3>답변</h3><pre id="answer"></pre><h3>Agent 실행 이력</h3><div id="runs"></div><h3>RAG 근거</h3><div id="evidence"></div><h3>산출물 · 4B 비교 보고서</h3><p class="muted">4B는 CLI에서 승인·실행한 결과만 조회합니다. 이 화면에는 파일 변경·커밋 기능이 없습니다.</p><div id="artifacts"></div></section>
+</section>
+</main><footer>로컬 단일 사용자 · 서버가 RAG / C/M / Hermes에 연결 · 자동 재실행 없음</footer>
+</body></html>

@@ -4,13 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hermes-equipment-poc"
-version = "0.2.0"
+version = "0.3.0"
 description = "Least-privilege Hermes adapters and tools for equipment software PoC"
 requires-python = ">=3.11"
 dependencies = []
+
+[project.optional-dependencies]
+web = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
+test = ["httpx>=0.27,<1"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-hermes_equipment_poc = ["resources/*.md"]
+hermes_equipment_poc = ["resources/*.md", "web_static/*"]
