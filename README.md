@@ -101,6 +101,9 @@ State Store 운영 경계와 복구 방법은 `docs/AO_STATE_STORE.md`를 따른
 
 ## Local A/O web interface (Phase 5)
 
+Phase 6B supports `--domain equipment` (default) and `--domain document` for general document
+analysis and reports. See [Domain Packs and migration](docs/DOMAIN_PACKS.md).
+
 Phase 6A adds a replaceable [KnowledgeProvider boundary](docs/KNOWLEDGE_PROVIDER.md)
 while preserving EquipmentRAG's existing API. Inference remains C/M → llama.cpp;
 the CLI default model is `Qwen3.8-27B-UD-Q5_K_XL.gguf` (override for server aliases).

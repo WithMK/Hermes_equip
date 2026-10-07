@@ -34,7 +34,7 @@ Service API keys use the existing environment variables and are not included in 
 The stored workspace root must match the launch argument. One workspace is served per state database.
 
 For Phase 5 offline bundles, the preparation and installation scripts now resolve the `[web]`
-extra for package version 0.3.0. Prepare the bundle on Windows; an old 0.2.0 wheelhouse is insufficient.
+extra (current package version 0.4.0). Prepare the bundle on Windows; an old 0.2.0 wheelhouse is insufficient.
 The UI uses only bundled HTML/CSS/JavaScript: no CDN, Node build, Docker or external fonts.
 Wheelhouse resolution and installation on the real Windows target still require acceptance testing.
 
@@ -56,7 +56,8 @@ Wheelhouse resolution and installation on the real Windows target still require 
 
 POST requires `Content-Type: application/json` and `X-AO-Request: 1`.
 Only these fields are accepted: `objective`, `session_id`, `equipment_id`, `request_kind`,
-`create_artifact`, `knowledge_scopes`. Workspace, endpoint, file path and tool permissions are
+`create_artifact`, `knowledge_scopes`, `domain_id`, `subject_id`. Domain must match the
+operator-configured workspace; see [Domain Packs](DOMAIN_PACKS.md). Workspace, endpoint, file path and tool permissions are
 server configuration, never browser input. Unknown fields fail validation.
 
 The UI generates a session ID if omitted and retains it locally. Reusing it forwards the same

@@ -89,6 +89,8 @@ class ContextPack:
     decisions: tuple[str, ...] = ()
     evidence: tuple[EvidenceReference, ...] = ()
     requested_output: str = ""
+    domain_id: str = "equipment"
+    subject_id: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "task_id", _required(self.task_id, "task_id"))
@@ -117,6 +119,8 @@ class TaskRecord:
     version: int = 0
     created_at: str = ""
     updated_at: str = ""
+    domain_id: str = "equipment"
+    subject_id: str | None = None
 
     def __post_init__(self) -> None:
         self.task_id = _required(self.task_id, "task_id")

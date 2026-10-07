@@ -42,6 +42,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--expected-version", type=int)
     parser.add_argument("--confirm-worker-stopped", action="store_true")
     parser.add_argument("--equipment-id")
+    parser.add_argument("--domain", choices=["equipment", "document"], default="equipment")
+    parser.add_argument("--subject-id")
     parser.add_argument("--request-kind", choices=[item.value for item in RequestKind])
     parser.add_argument("--knowledge-scope", action="append", default=[])
     parser.add_argument("--constraint", action="append", default=[])
@@ -121,12 +123,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         store = AgentOrchestraStateStore(Path(args.state_db))
         try:
-            store.get_workspace(args.workspace_id)
+            workspace = store.get_workspace(args.workspace_id)
+            if workspace["domain_id"] != args.domain:
+                raise ValueError("stored workspace domain differs from --domain")
         except StateNotFoundError:
             store.create_workspace(
                 args.workspace_id,
                 name=args.workspace_name,
                 root_path=args.workspace_root,
+                domain_id=args.domain,
             )
         rag = EquipmentRagClient(
             JsonApiClient(
@@ -165,6 +170,7 @@ def main(argv: list[str] | None = None) -> int:
             store,
             chat=chat,
             knowledge_provider=EquipmentRagKnowledgeProvider(rag),
+            domain_id=args.domain,
             specialists=_specialist_dispatcher(args),
             artifact_store=artifact_store,
         )
@@ -183,6 +189,8 @@ def main(argv: list[str] | None = None) -> int:
                 task_id=args.task_id,
                 session_id=args.session_id,
                 equipment_id=args.equipment_id,
+                domain_id=args.domain,
+                subject_id=args.subject_id,
                 request_kind=(
                     RequestKind(args.request_kind) if args.request_kind else None
                 ),

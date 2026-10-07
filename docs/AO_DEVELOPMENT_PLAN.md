@@ -25,14 +25,19 @@ Implemented in the Phase 5 feature branch: local HTTP submission/status API, bou
 worker with durable submission journal, read-only fixed Agent registry and offline browser UI.
 See `PHASE5_WEB.md` for setup, security boundaries and acceptance tests.
 4B execution remains operator CLI only; the UI displays registered comparison reports.
-Dynamic Agent lifecycle, LAN/multi-user service, equipment domain packs and dataset automation
+Dynamic Agent lifecycle, LAN/multi-user service and dataset automation
 are deferred until this interface has passed real-service target-PC acceptance.
 
 ## Initial constraints
 
+Phase 6B implements built-in equipment/document Domain Packs, operator-bound workspaces,
+generic subject IDs with equipment compatibility, domain-aware prompts and UI request kinds.
+See `DOMAIN_PACKS.md`. Real-service target-PC acceptance remains pending.
+
 Phase 6A implementation: read-only KnowledgeProvider contract and EquipmentRAG adapter,
 legacy compatibility, and llama.cpp model configuration. See `KNOWLEDGE_PROVIDER.md`.
-Full Domain Packs, generic task schemas and multi-provider routing remain deferred.
+Dynamic Domain Pack installation and multi-provider routing remain deferred; 6B adds
+built-in packs and domain/subject task fields.
 
 - Sequential delegation only.
 - No dynamic agent creation or free-form P2P messaging.
