@@ -19,7 +19,10 @@ def main(argv=None):
     parser = _parser()
     parser.description = 'Local A/O web interface (one process, http://127.0.0.1:8650)'
     parser.add_argument('--port', type=int, default=8650)
+    parser.add_argument('--enable-document-uploads', action='store_true')
     args = parser.parse_args(argv)
+    if args.enable_document_uploads and len(os.environ.get('EQUIPMENT_RAG_INGESTION_KEY', '')) < 24:
+        parser.error('EQUIPMENT_RAG_INGESTION_KEY must contain at least 24 characters')
     if not 1 <= args.port <= 65535:
         parser.error('invalid port')
     if not args.workspace_root:
@@ -73,7 +76,8 @@ def main(argv=None):
     import uvicorn
     uvicorn.run(create_app(engine, args.workspace_id, agents=entries, health_checks=checks,
                           openai_api_key=os.environ.get('AO_API_KEY', ''),
-                          agent_manager=manager, managed_dispatcher=managed),
+                          agent_manager=manager, managed_dispatcher=managed,
+                          material_client=client(args.equipment_rag_base_url, 'EQUIPMENT_RAG_INGESTION_KEY') if args.enable_document_uploads else None),
                 host='127.0.0.1', port=args.port, workers=1, proxy_headers=False)
 
 
