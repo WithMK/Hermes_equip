@@ -4,9 +4,24 @@
 <body>
 <header><div><span class="eyebrow">HERMES / LOCAL CONTROL</span><h1>Agent Orchestra</h1></div><span id="connection" role="status">연결 확인 중</span></header>
 <main>
-<aside><h2>작업 이력</h2><button id="refresh" type="button">새로고침</button><div id="tasks"></div><h2>전문 Agent</h2><p id="agent-mode" class="muted">등록 정보를 불러오는 중입니다.</p><button id="agent-new" type="button" hidden>Agent 등록</button><div id="agents"></div></aside>
+<aside><h2>프로젝트</h2><label>업무 공간<select id="project-select"><option value="">프로젝트 미지정</option></select></label><button id="project-new" type="button">프로젝트 생성</button><button id="project-edit" type="button" disabled>설정</button><h2>작업 이력</h2><button id="refresh" type="button">새로고침</button><div id="tasks"></div><h2>전문 Agent</h2><p id="agent-mode" class="muted">등록 정보를 불러오는 중입니다.</p><button id="agent-new" type="button" hidden>Agent 등록</button><div id="agents"></div></aside>
 <section class="workspace">
 <div class="intro"><span class="eyebrow">WORKSPACE</span><h2 id="workspace-name">불러오는 중</h2><p id="mode"></p></div>
+<form id="project-editor" hidden>
+<h2 id="project-editor-title">프로젝트 생성</h2>
+<div class="fields"><label>Project ID<input id="project-id" required maxlength="64" pattern="[a-z0-9][a-z0-9_-]{0,63}"></label><label>이름<input id="project-name" required maxlength="120"></label><label>상태<select id="project-status"><option value="active">진행</option><option value="archived">보관 (새 업무 중지)</option></select></label></div>
+<label>목표·설명<textarea id="project-description" rows="3" maxlength="2000"></textarea></label>
+<div class="fields"><label>기본 대상 ID<input id="project-subject" maxlength="200"></label><label>문서 검색 Project 값<input id="project-knowledge" maxlength="200"></label><label>코드 검색 Repository 값<input id="project-repository" maxlength="200"></label></div>
+<p class="muted">검색 값은 RAG에 등록된 메타데이터와 일치해야 합니다. 비어 있으면 해당 필터를 적용하지 않습니다. 프로젝트는 이 서버의 업무 영역·자료 저장소·Agent 설정을 공유합니다.</p>
+<div class="form-footer"><button id="project-cancel" type="button">닫기</button><button id="project-save" type="submit">저장</button></div>
+</form>
+<section id="project-panel" hidden>
+<h2 id="project-title"></h2><p id="project-summary"></p><p id="project-binding" class="muted"></p>
+<h3>프로젝트 결과물</h3><div id="project-artifacts"></div>
+<h3>프로젝트 Memory</h3><p class="muted">확정 결정은 사용자가 직접 등록합니다. 과거 AI 결과는 미확정 참고로만 재사용합니다.</p><div id="project-notes"></div>
+<form id="note-form"><h3 id="note-title">기록 추가</h3><div class="fields"><label>종류<select id="note-kind"><option value="decision">확정 결정</option><option value="open_item">미해결 항목</option></select></label><label>상태<select id="note-status"><option value="active">사용 중</option><option value="resolved">완료·사용 종료</option></select></label><label>근거 작업 ID (선택)<input id="note-source" maxlength="200"></label></div><label>내용<textarea id="note-content" rows="3" required maxlength="1000"></textarea></label><div class="form-footer"><button id="note-cancel" type="button">편집 취소</button><button id="note-save" type="submit">기록 저장</button></div></form>
+<button id="project-history-button" type="button">프로젝트 변경 이력</button><pre id="project-history" hidden></pre>
+</section>
 <form id="agent-editor" hidden>
 <h2 id="agent-editor-title">Agent 등록</h2>
 <p>역할별로 한 Agent만 활성화됩니다. 저장한 설정은 시험 호출 후 활성화해주세요. 수정하면 기존 활성 상태가 해제됩니다.</p>
@@ -19,10 +34,10 @@
 <form id="task-form">
 <div class="fields"><label>Session ID<input id="session" maxlength="500" placeholder="비어 있으면 새 세션 생성"></label><label><span id="subject-label">Equipment ID (선택)</span><input id="equipment" maxlength="200" placeholder="예: E-024"></label><label>요청 유형<select id="kind"><option value="">자동 분류</option><option value="question">일반 질문</option><option value="document_task">문서 분석</option><option value="code_analysis">코드 분석</option><option value="troubleshooting">트러블슈팅</option><option value="code_change">코드 변경 계획 (읽기 전용)</option></select></label></div>
 <label for="objective">어떤 작업을 수행할까요?</label><textarea id="objective" rows="4" maxlength="20000" required placeholder="문서와 코드를 확인하고, 근거를 들어 분석해주세요."></textarea>
-<div class="form-footer"><label><input id="artifact" type="checkbox"> Markdown 산출물 생성</label><button id="submit" type="submit">작업 실행 →</button></div>
+<div class="form-footer"><div><label><input id="artifact" type="checkbox"> Markdown 산출물 생성</label><label><input id="use-memory" type="checkbox" checked> 프로젝트 Memory 사용</label><label>이어갈 작업 (선택)<input id="task-source" maxlength="200" placeholder="선택한 결과의 후속 작업 버튼으로 지정"></label></div><button id="submit" type="submit">작업 실행 →</button></div>
 </form>
 <p id="error" role="alert"></p>
-<section id="detail" hidden><div class="detail-header"><h2>실행 결과</h2><span id="status"></span></div><p id="task-id" class="muted"></p><h3>요청</h3><pre id="request"></pre><p id="diagnostic"></p><h3>답변</h3><pre id="answer"></pre><h3>Agent 실행 이력</h3><div id="runs"></div><h3>RAG 근거</h3><div id="evidence"></div><h3>산출물 · 4B 비교 보고서</h3><p class="muted">4B는 CLI에서 승인·실행한 결과만 조회합니다. 이 화면에는 파일 변경·커밋 기능이 없습니다.</p><div id="artifacts"></div></section>
+<section id="detail" hidden><div class="detail-header"><h2>실행 결과</h2><span id="status"></span></div><p id="task-id" class="muted"></p><button id="task-followup" type="button" disabled>이 작업 이어가기</button><h3>요청</h3><pre id="request"></pre><p id="diagnostic"></p><h3>답변</h3><pre id="answer"></pre><h3>사용한 프로젝트 Memory</h3><pre id="task-memory"></pre><h3>Agent 실행 이력</h3><div id="runs"></div><h3>RAG 근거</h3><div id="evidence"></div><h3>산출물 · 4B 비교 보고서</h3><p class="muted">4B는 CLI에서 승인·실행한 결과만 조회합니다. 이 화면에는 파일 변경·커밋 기능이 없습니다.</p><div id="artifacts"></div></section>
 </section>
 </main><footer>로컬 단일 사용자 · 서버가 RAG / C/M / Hermes에 연결 · 자동 재실행 없음</footer>
 </body></html>

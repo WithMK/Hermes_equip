@@ -92,6 +92,8 @@ class ContextPack:
     domain_id: str = "equipment"
     subject_id: str | None = None
     conversation: tuple[dict[str, str], ...] = ()
+    project_id: str = ""
+    project_memory: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "task_id", _required(self.task_id, "task_id"))

@@ -12,6 +12,8 @@ class KnowledgeQuery:
     top_k: int = 8
     subject_id: str | None = None
     scopes: tuple[str, ...] = ()
+    project: str | None = None
+    repository: str | None = None
 
     def __post_init__(self) -> None:
         if not self.query.strip():
@@ -20,6 +22,9 @@ class KnowledgeQuery:
             raise ValueError("unsupported knowledge source type")
         if type(self.top_k) is not int or not 1 <= self.top_k <= 20:
             raise ValueError("knowledge top_k must be between 1 and 20")
+        for value in (self.project, self.repository):
+            if value is not None and (not isinstance(value, str) or not value.strip() or len(value) > 200):
+                raise ValueError("invalid project/repository filter")
 
 
 @dataclass(frozen=True)
@@ -49,7 +54,8 @@ class KnowledgeProvider(Protocol):
 
     Provider selection is operator-owned. subject_id is a retrieval filter,
     NOT a tenant or authorization boundary. Providers must not silently ignore
-    unsupported filters. Source IDs are unique within a result; record IDs are
+    unsupported filters, including project (documents) and repository (code).
+    Source IDs are unique within a result; record IDs are
     provider-local. Content uses text/code and labels use file_name/relative_path.
     """
 
@@ -79,8 +85,8 @@ class EquipmentRagKnowledgeProvider:
         response = self.client.retrieve(
             query=request.query, source_type=request.source_type,
             top_k=request.top_k, include_content=True,
-            code_filters={"equipment": request.subject_id},
-            document_filters={"equipment": request.subject_id},
+            code_filters={"equipment": request.subject_id, **({'repository': request.repository} if request.repository else {})},
+            document_filters={"equipment": request.subject_id, **({'project': request.project} if request.project else {})},
             knowledge_scopes=list(request.scopes),
         )
         raw = response.get("sources")

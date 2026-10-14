@@ -63,6 +63,17 @@ def install_openai_api(app, worker, api_key: str, wait_seconds: float):
     if worker.engine.artifact_store is not None:
         models.append(model_id + "/report")
 
+    def available_models():
+        values = list(models)
+        for project in worker.projects.list():
+            if project['status'] != 'active':
+                continue
+            bound = model_id + '/project/' + project['project_id']
+            values.append(bound)
+            if worker.engine.artifact_store is not None:
+                values.append(bound + '/report')
+        return values
+
     def authorized(request):
         return hmac.compare_digest(request.headers.get("authorization", "").encode(), ("Bearer " + api_key).encode())
 
@@ -70,7 +81,7 @@ def install_openai_api(app, worker, api_key: str, wait_seconds: float):
     async def list_models(request: Request):
         if not authorized(request):
             return error("Invalid API key", 401, "authentication_error")
-        return {"object": "list", "data": [{"id": m, "object": "model", "created": 0, "owned_by": "hermes-ao"} for m in models]}
+        return {"object": "list", "data": [{"id": m, "object": "model", "created": 0, "owned_by": "hermes-ao"} for m in available_models()]}
 
     @app.post("/v1/chat/completions")
     async def chat(request: Request):
@@ -78,7 +89,7 @@ def install_openai_api(app, worker, api_key: str, wait_seconds: float):
             return error("Invalid API key", 401, "authentication_error")
         try:
             value = ChatInput.model_validate(await request.json())
-            if value.model not in models:
+            if value.model not in available_models():
                 return error("Unknown A/O model", 404, "model_not_found")
             if value.n != 1 or value.top_p != 1 or value.frequency_penalty or value.presence_penalty or value.tools or value.tool_choice not in (None, "none") or value.response_format or value.stop or value.seed is not None or value.logit_bias:
                 return error("Only text chat, n=1, temperature and token limits are supported; tools/structured output and other sampling controls are unavailable")
@@ -86,10 +97,18 @@ def install_openai_api(app, worker, api_key: str, wait_seconds: float):
                 return error("Only stream_options.include_usage is supported")
             if value.messages[-1].role != "user" or any(not m.content.strip() for m in value.messages):
                 return error("Messages must contain non-empty text and end with a user message")
-            if set(value.ao) - {"subject_id", "equipment_id", "request_kind", "create_artifact", "knowledge_scopes", "domain_id"}:
+            if set(value.ao) - {"subject_id", "equipment_id", "request_kind", "create_artifact", "knowledge_scopes", "domain_id", "project_id", "use_memory", "source_task_id"}:
                 return error("Unsupported A/O option")
             options = dict(value.ao)
-            if value.model == model_id + "/report":
+            report_mode = value.model == model_id + '/report'
+            if value.model.startswith(model_id + '/project/'):
+                parts = value.model[len(model_id + '/project/'):].split('/')
+                project_id = parts[0]
+                report_mode = len(parts) == 2 and parts[1] == 'report'
+                if options.get('project_id', project_id) != project_id:
+                    return error('Project option conflicts with selected model')
+                options['project_id'] = project_id
+            if report_mode:
                 options["create_artifact"] = True
                 options.setdefault("request_kind", "document_task")
             # OpenWebUI sends full history. Use a fresh C/M session per request to
@@ -102,7 +121,7 @@ def install_openai_api(app, worker, api_key: str, wait_seconds: float):
         except (ValidationError, ValueError, TypeError):
             return error("Invalid or oversized chat request; check supported text fields and domain options")
         except HTTPException as exc:
-            return error(str(exc.detail), exc.status_code, "rate_limit_error")
+            return error(str(exc.detail), exc.status_code, "rate_limit_error" if exc.status_code == 429 else "invalid_request_error")
 
         started = time.monotonic()
         completion_id = "chatcmpl-" + task_id
