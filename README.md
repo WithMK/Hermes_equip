@@ -101,6 +101,9 @@ State Store 운영 경계와 복구 방법은 `docs/AO_STATE_STORE.md`를 따른
 
 ## Local A/O web interface (Phase 5)
 
+Version 0.6.0 adds [Agent profile management](docs/AGENT_MANAGEMENT.md):
+register/edit, trial inference, activate/deactivate, delete and audit history in the console.
+
 Version 0.5.0 adds [OpenWebUI text-chat integration](docs/OPENWEBUI.md).
 Set `AO_API_KEY` and connect OpenWebUI to `http://127.0.0.1:8650/v1`.
 

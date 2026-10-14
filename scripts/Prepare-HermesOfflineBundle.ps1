@@ -157,7 +157,7 @@ try {
     Assert-LastExitCode "Validation venv creation"
     $verifyPython = Join-Path $verifyVenv "Scripts\python.exe"
     & $verifyPython -m pip install --disable-pip-version-check --no-index --find-links $wheelhouse.FullName `
-        "hermes-agent[mcp]==$HermesPackageVersion" "hermes-equipment-poc[web]==0.5.0"
+        "hermes-agent[mcp]==$HermesPackageVersion" "hermes-equipment-poc[web]==0.6.0"
     Assert-LastExitCode "Offline validation installation"
     & $verifyPython -c "import hermes_cli, hermes_equipment_poc; print('Offline import validation: OK')"
     Assert-LastExitCode "Offline import validation"
@@ -220,7 +220,7 @@ After installation, edit the copied profile templates before starting a profile.
         target = "Windows-x64"
         python_version = $PythonVersion
         hermes = [ordered]@{ tag = $HermesTag; commit = $HermesCommit; package_version = $HermesPackageVersion; extras = @("mcp") }
-        equipment_poc_version = "0.5.0"
+        equipment_poc_version = "0.6.0"
         files = $manifestFiles
     }
     $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $OutputRoot "manifest.json") -Encoding UTF8

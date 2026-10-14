@@ -1,5 +1,9 @@
 # Phase 5 — local A/O API and control interface
 
+This page describes the Phase 5 baseline. Version 0.6.0 adds
+[Agent profile management](AGENT_MANAGEMENT.md) to `web_cli`; its management routes
+and execution/version behavior supersede the read-only registry limits below.
+
 This is a local, single-user task console, not a multi-user service or an Agent lifecycle manager.
 It reuses SingleOrchestrator, the fixed specialist dispatcher, SQLite state and registered artifacts.
 No change to the Hermes upstream runtime, EquipmentRAG or ContextManager is required.
@@ -34,7 +38,7 @@ Service API keys use the existing environment variables and are not included in 
 The stored workspace root must match the launch argument. One workspace is served per state database.
 
 For Phase 5 offline bundles, the preparation and installation scripts now resolve the `[web]`
-extra (current package version 0.5.0). Prepare the bundle on Windows; an old 0.2.0 wheelhouse is insufficient.
+extra (current package version 0.6.0). Prepare the bundle on Windows; an old 0.2.0 wheelhouse is insufficient.
 The UI uses only bundled HTML/CSS/JavaScript: no CDN, Node build, Docker or external fonts.
 Wheelhouse resolution and installation on the real Windows target still require acceptance testing.
 

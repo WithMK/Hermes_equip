@@ -199,6 +199,13 @@ class SingleOrchestrator:
                        equipment_id=subject if self.domain.domain_id == "equipment" else None)
 
     def run(self, request: OrchestratorRequest) -> OrchestratorResult:
+        scope = getattr(self.specialists, 'execution_scope', None)
+        if scope is not None:
+            with scope():
+                return self._run(request)
+        return self._run(request)
+
+    def _run(self, request: OrchestratorRequest) -> OrchestratorResult:
         request = self.validate_request(request)
         inherited = []
         for source_id in request.decision_task_ids:
@@ -229,6 +236,11 @@ class SingleOrchestrator:
             self.state_store.save_checkpoint(task_id, {
                 "phase": "request_saved", "request": asdict(request)
             })
+            snapshot = getattr(self.specialists, 'configuration_snapshot', None)
+            if snapshot is not None:
+                self.state_store.save_checkpoint(task_id, {
+                    'phase': 'agent_configuration', 'agents': snapshot()
+                })
             task = self.state_store.transition_task(
                 task_id,
                 TaskStatus.PLANNING,
@@ -396,6 +408,9 @@ class SingleOrchestrator:
                     "answer": completion.content,
                     "source_ids": [item.source_id for item in evidence],
                     "delegated_agents": [item.agent.value for item in delegations],
+                    "agent_profiles": [{"agent_id": item.agent_id or item.agent.value,
+                                        "role": item.agent.value, "version": item.agent_version}
+                                       for item in delegations],
                     "artifact_paths": [item.path for item in artifacts],
                 },
             )

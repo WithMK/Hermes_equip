@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import copy
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -11,6 +12,7 @@ from .orchestrator import (AgentOrchestraStateStore, ContextManagerChatClient,
     MarkdownArtifactStore, SingleOrchestrator, SpecialistAgent, StateNotFoundError)
 from .orchestrator_cli import _parser, _specialist_dispatcher
 from .service_clients import EquipmentRagClient
+from .agent_manager import AgentManager, ManagedDispatcher
 
 
 def main(argv=None):
@@ -56,11 +58,22 @@ def main(argv=None):
             'health': 'not_checked'})
         if args.enable_specialists:
             checks[agent.value] = lambda c=probe: c.get('/v1/models')
-    engine = SingleOrchestrator(store, chat=chat, knowledge_provider=EquipmentRagKnowledgeProvider(rag), domain_id=args.domain, specialists=_specialist_dispatcher(args), artifact_store=artifacts)
+    if Path(str(store.path) + '.web.db.worker.lock').exists():
+        parser.error('worker lock exists; stop the previous server before changing Agent configuration')
+    manager = AgentManager(str(store.path) + '.agents.db', args.workspace_id,
+                           [{'role': e['role'], 'endpoint': e['endpoint']} for e in entries],
+                           enabled=args.enable_specialists)
+    provider_args = copy.copy(args)
+    provider_args.enable_specialists = True
+    configured = _specialist_dispatcher(provider_args)
+    managed = ManagedDispatcher(manager, {role: provider for role, provider in configured.providers.items()
+                                         if role.value in manager.templates}, args.domain)
+    engine = SingleOrchestrator(store, chat=chat, knowledge_provider=EquipmentRagKnowledgeProvider(rag), domain_id=args.domain, specialists=managed if args.enable_specialists else None, artifact_store=artifacts)
     from .web_service import create_app
     import uvicorn
     uvicorn.run(create_app(engine, args.workspace_id, agents=entries, health_checks=checks,
-                          openai_api_key=os.environ.get('AO_API_KEY', '')),
+                          openai_api_key=os.environ.get('AO_API_KEY', ''),
+                          agent_manager=manager, managed_dispatcher=managed),
                 host='127.0.0.1', port=args.port, workers=1, proxy_headers=False)
 
 

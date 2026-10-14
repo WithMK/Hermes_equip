@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hermes-equipment-poc"
-version = "0.5.0"
+version = "0.6.0"
 description = "Least-privilege Hermes adapters and tools for equipment software PoC"
 requires-python = ">=3.11"
 dependencies = []
