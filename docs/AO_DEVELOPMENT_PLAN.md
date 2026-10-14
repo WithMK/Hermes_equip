@@ -30,6 +30,12 @@ are deferred until this interface has passed real-service target-PC acceptance.
 
 ## Initial constraints
 
+Version 0.7.0 adds generic project catalogs, metadata retrieval bindings, project task/artifact
+views, user-confirmed memory notes, bounded historical result selection and OpenWebUI project
+models. See `PROJECT_WORKSPACE.md`. Projects share the operator-selected Domain Pack and Agent
+configuration; independent roots, dynamic domains, per-project Agent assignment and dataset
+automation are future steps.
+
 Version 0.6.0 adds persistent named Agent profiles over the existing role templates,
 test-before-activation, role-exclusive selection, configuration history and console CRUD.
 See `AGENT_MANAGEMENT.md`. Hermes process supervision, arbitrary workflow roles and parallel

@@ -31,6 +31,17 @@ class FakeProvider:
 
 
 class KnowledgeProviderTests(unittest.TestCase):
+    def test_project_and_repository_filters_use_existing_http_contract(self):
+        class Http:
+            def post(self, path, payload):
+                self.payload = payload
+                return {'sources': [SOURCE]}
+        http = Http()
+        provider = EquipmentRagKnowledgeProvider(EquipmentRagClient(http))
+        provider.search(KnowledgeQuery('review', project='GeneralProject', repository='InternalRepo'))
+        self.assertEqual(http.payload['filters']['document'], {'project': 'GeneralProject'})
+        self.assertEqual(http.payload['filters']['code'], {'repository': 'InternalRepo'})
+
     def test_existing_http_contract_and_subject_scope_mapping(self):
         class Http:
             def post(self, path, payload):

@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .orchestrator import OrchestratorRequest, RequestKind, StateNotFoundError, TaskStatus
+from .projects import ProjectStore, ProjectConflict, ProjectMissing, related_tasks
 
 
 class TaskInput(BaseModel):
@@ -30,6 +31,9 @@ class TaskInput(BaseModel):
     request_kind: str | None = None
     create_artifact: bool = False
     knowledge_scopes: list[str] = Field(default_factory=list, max_length=8)
+    project_id: str = Field(default='', max_length=64)
+    use_memory: bool = True
+    source_task_id: str = Field(default='', max_length=200)
 
 
 class TaskWorker:
@@ -45,6 +49,7 @@ class TaskWorker:
         self.stop = threading.Event()
         self.thread = None
         self.lock_path = Path(str(path) + ".worker.lock")
+        self.projects = None
 
     def db(self):
         connection = sqlite3.connect(self.path, timeout=5)
@@ -62,9 +67,13 @@ class TaskWorker:
                 configured = db.execute('SELECT workspace_id FROM web_config').fetchone()
                 if configured and configured[0] != self.workspace_id:
                     raise ValueError('Web journal is bound to another workspace')
+                self.projects = ProjectStore(str(self.store.path) + '.projects.db', self.workspace_id, self.engine.domain.domain_id)
                 if not configured:
                     db.execute('INSERT INTO web_config VALUES(?)', (self.workspace_id,))
                 db.execute("CREATE TABLE IF NOT EXISTS web_jobs (id TEXT PRIMARY KEY, request TEXT NOT NULL, status TEXT NOT NULL, result TEXT, error TEXT, mode TEXT NOT NULL DEFAULT 'unknown', submitted_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f+00:00','now')))")
+                if 'project_id' not in {column['name'] for column in db.execute('PRAGMA table_info(web_jobs)')}:
+                    db.execute("ALTER TABLE web_jobs ADD COLUMN project_id TEXT NOT NULL DEFAULT ''")
+                db.execute('CREATE INDEX IF NOT EXISTS web_jobs_project ON web_jobs(project_id,status)')
                 rows = db.execute("SELECT id FROM web_jobs WHERE status IN ('queued','running')").fetchall()
                 for row in rows:
                     try:
@@ -93,15 +102,46 @@ class TaskWorker:
 
     def submit(self, value: TaskInput, *, conversation=(), temperature=0.1, max_tokens=1200):
         task_id = 'web-' + uuid4().hex
+        subject = value.subject_id or value.equipment_id
+        project_memory, knowledge_project, repository = '', None, None
+        if value.project_id:
+            project, memory = self.projects.snapshot(value.project_id, value.objective)
+            if project['status'] != 'active':
+                raise ProjectConflict('Archived project does not accept new tasks')
+            if subject and project['subject_id'] and subject.strip() != project['subject_id']:
+                raise ValueError('Task subject conflicts with project binding')
+            subject = subject or project['subject_id'] or None
+            knowledge_project = project['knowledge_project'] or None
+            repository = project['repository'] or None
+            if value.source_task_id:
+                self.source_job(value.project_id, value.source_task_id)
+            if value.use_memory:
+                with closing(self.db()) as db:
+                    rows = db.execute("SELECT * FROM web_jobs WHERE project_id=? AND status='completed' AND result IS NOT NULL ORDER BY rowid DESC LIMIT 200", (value.project_id,)).fetchall()
+                if value.source_task_id and not any(row['id'] == value.source_task_id for row in rows):
+                    rows = [self.source_job(value.project_id, value.source_task_id), *rows]
+                memory.extend(related_tasks(value.objective, rows, source_task_id=value.source_task_id))
+                # Entire serialized snapshot is bounded, including JSON escaping.
+                while len(json.dumps(memory, ensure_ascii=False)) > 12000:
+                    memory.pop()
+                project_memory = json.dumps(memory, ensure_ascii=False)
+        elif value.source_task_id:
+            raise ValueError('A source task requires a project')
+        if value.source_task_id and not value.use_memory:
+            raise ValueError('A source task requires project memory enabled')
+        # Project and task identities isolate C/M sessions even when clients reuse a label.
+        session = 'project-' + hashlib.sha256(json.dumps([self.workspace_id, value.project_id, task_id, value.session_id]).encode()).hexdigest() if value.project_id else value.session_id
         request = OrchestratorRequest(
             workspace_id=self.workspace_id, task_id=task_id,
-            objective=value.objective, session_id=value.session_id,
+            objective=value.objective, session_id=session,
             equipment_id=value.equipment_id,
             conversation=conversation, temperature=temperature, max_tokens=max_tokens,
             domain_id=value.domain_id,
-            subject_id=value.subject_id,
+            subject_id=subject,
             request_kind=RequestKind(value.request_kind) if value.request_kind else None,
             create_artifact=value.create_artifact, knowledge_scopes=tuple(value.knowledge_scopes),
+            project_id=value.project_id, project_memory=project_memory,
+            knowledge_project=knowledge_project, repository=repository,
         )
         request = self.engine.validate_request(request)
         if request.create_artifact and self.engine.artifact_store is None:
@@ -112,9 +152,15 @@ class TaskWorker:
             if count >= self.capacity:
                 raise HTTPException(429, 'Task queue is full')
             mode = 'specialists' if self.engine.specialists is not None else 'direct'
-            db.execute("INSERT INTO web_jobs(id,request,status,mode) VALUES(?,?,'queued',?)", (task_id, json.dumps(asdict(request)), mode))
+            db.execute("INSERT INTO web_jobs(id,request,status,mode,project_id) VALUES(?,?,'queued',?,?)", (task_id, json.dumps(asdict(request)), mode, value.project_id))
         self.wake.set()
         return task_id
+
+    def source_job(self, project_id, task_id):
+        row = self.job(task_id)
+        if not row or row['project_id'] != project_id or row['status'] != 'completed' or not row['result']:
+            raise ProjectMissing('Completed source task not found in this project')
+        return row
 
     def job(self, task_id):
         with closing(self.db()) as db:
@@ -167,6 +213,9 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
 
     app = FastAPI(title='Hermes A/O Control', lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.worker = worker
+    # Routes resolve the catalog after lifespan initializes it under the worker lock.
+    from .project_api import install_project_routes
+    install_project_routes(app, worker)
     if agent_manager is not None:
         if managed_dispatcher is None:
             raise ValueError('managed dispatcher is required for Agent management')
@@ -225,6 +274,7 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
                 'subject_label': engine.domain.subject_label,
                 'allowed_request_kinds': engine.domain.allowed_kinds,
                 'agent_management_enabled': agent_manager is not None,
+                'project_management_enabled': True,
                 'specialists_enabled': engine.specialists is not None,
                 'artifacts_enabled': engine.artifact_store is not None}
 
@@ -251,6 +301,10 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
     def submit(value: TaskInput):
         try:
             task_id = worker.submit(value)
+        except ProjectMissing as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except ProjectConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         return {'task_id': task_id, 'status': 'accepted'}
@@ -282,16 +336,23 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
         data['delegation_mode'] = job['mode'] if job else 'unknown (CLI task)'
         data['created_at'] = data.get('created_at') or (job['submitted_at'] if job else '')
         data['session_id'] = json.loads(job['request'])['session_id'] if job else ''
+        data['project_id'] = job['project_id'] if job else ''
+        data['project_memory'] = json.loads(job['request']).get('project_memory', '') if job else ''
         return data
 
     @app.get('/v1/tasks')
-    def tasks(limit: int = 50):
+    def tasks(limit: int = 50, project_id: str | None = None):
         if not 1 <= limit <= 100:
             raise HTTPException(422, 'limit must be 1-100')
+        if project_id:
+            try:
+                worker.projects.get(project_id)
+            except ProjectMissing as exc:
+                raise HTTPException(404, str(exc)) from exc
         with closing(store._connect()) as db:
-            rows = db.execute('SELECT task_id FROM tasks WHERE workspace_id=? ORDER BY rowid DESC LIMIT ?', (workspace_id, limit)).fetchall()
+            rows = db.execute('SELECT task_id FROM tasks WHERE workspace_id=? ORDER BY rowid DESC LIMIT ?', (workspace_id, limit)).fetchall() if project_id is None else []
         with closing(worker.db()) as db:
-            jobs = db.execute('SELECT id FROM web_jobs ORDER BY rowid DESC LIMIT ?', (limit,)).fetchall()
+            jobs = db.execute('SELECT id FROM web_jobs ORDER BY rowid DESC LIMIT ?', (limit,)).fetchall() if project_id is None else db.execute('SELECT id FROM web_jobs WHERE project_id=? ORDER BY rowid DESC LIMIT ?', (project_id, limit)).fetchall()
         ids = list(dict.fromkeys([r['id'] for r in jobs] + [r['task_id'] for r in rows]))
         return sorted([task_data(i) for i in ids], key=lambda item: item['created_at'], reverse=True)[:limit]
 

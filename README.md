@@ -1,7 +1,8 @@
-# Hermes Equipment Agent PoC
+# Hermes Agent Orchestra
 
 Hermes Agent를 Runtime으로 사용해 EquipmentRAG, ContextManager와 제한형 개발 Tool을
-조정하는 사내 설비제어SW Agent Orchestra PoC이다.
+조정하는 사내 Agent Orchestra이다. 설비개발뿐 아니라 일반 문서·프로젝트 업무를
+Domain Pack과 공통 프로젝트 공간으로 구성한다.
 
 ## 고정 원칙
 
@@ -100,6 +101,10 @@ State Store 운영 경계와 복구 방법은 `docs/AO_STATE_STORE.md`를 따른
 제외 기능은 `docs/OFFLINE_INSTALL.md`를 참고한다.
 
 ## Local A/O web interface (Phase 5)
+
+Version 0.7.0 adds [generic project workspaces and Memory](docs/PROJECT_WORKSPACE.md):
+project creation/selection, decisions/open items, scoped task/artifact views, frozen
+memory snapshots, follow-up results and project-specific OpenWebUI models.
 
 Version 0.6.0 adds [Agent profile management](docs/AGENT_MANAGEMENT.md):
 register/edit, trial inference, activate/deactivate, delete and audit history in the console.
