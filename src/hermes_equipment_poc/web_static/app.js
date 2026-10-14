@@ -4,6 +4,7 @@ let selected = localStorage.getItem('ao-task') || '', polling = false, artifactK
 let manageAgents = false, editingAgent = null;
 let currentProject = localStorage.getItem('ao-project') || '', projects = [], editingProject = null, editingNote = null;
 let workspaceName = '', projectTasks = [], activeTask = null;
+let materialUploads = false, materialRows = [], materialBusy = false;
 const terminal = new Set(['completed', 'failed', 'interrupted']);
 async function api(path, options = {}) {
   const response = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', 'X-AO-Request': '1', ...(options.headers || {}) } });
@@ -69,6 +70,7 @@ async function refresh() { await listTasks(); await detail(); text('connection',
 async function start() {
   const config = await api('/v1/workspace'); text('workspace-name', config.name);
   workspaceName = config.name;
+  materialUploads = !!config.material_uploads_enabled;
   text('subject-label', `${config.subject_label || 'Equipment'} ID (선택)`);
   $('equipment').placeholder = config.domain_id === 'document' ? '예: 구매절차' : '예: E-024';
   for (const option of Array.from($('kind').options)) {
@@ -108,6 +110,7 @@ async function loadProjects() {
   await showProject();
 }
 async function showProject() {
+  materialRows = []; $('materials').replaceChildren(); $('material-file').value = '';
   const project = projects.find(p => p.project_id === currentProject);
   $('project-panel').hidden = !project; $('project-edit').disabled = !project;
   $('use-memory').disabled = !project; $('task-source').disabled = !project;
@@ -119,6 +122,12 @@ async function showProject() {
   text('project-title', project.name); text('project-summary', project.description);
   text('project-binding', `${project.domain_id} · ${project.status} · 문서 Project: ${project.knowledge_project || '전체'} · 코드 Repository: ${project.repository || '전체'}`);
   $('note-save').disabled = project.status === 'archived';
+  $('material-form').hidden = !materialUploads;
+  $('material-upload').disabled = project.status === 'archived' || materialBusy;
+  $('material-refresh').hidden = !materialUploads;
+  text('material-mode', materialUploads ? '준비 완료 자료는 이 프로젝트의 RAG 검색에 사용됩니다. 폴더 감시는 포함하지 않습니다.' : '자료 등록 서버 연결이 설정되지 않았습니다.');
+  text('material-message', '');
+  await loadMaterials();
   await loadNotes();
 }
 async function loadNotes() {
@@ -154,6 +163,8 @@ function editProject(project = null) {
   $('project-id').value = project?.project_id || ''; $('project-id').disabled = !!project;
   for (const [id, key] of [['project-name', 'name'], ['project-description', 'description'], ['project-subject', 'subject_id'], ['project-knowledge', 'knowledge_project'], ['project-repository', 'repository']]) $(id).value = project?.[key] || '';
   $('project-status').value = project?.status || 'active'; $('project-status').disabled = !project;
+  $('project-knowledge').disabled = !!project?.materials_namespace;
+  $('project-subject').disabled = !!project?.materials_namespace;
   $('project-editor').scrollIntoView({behavior: 'smooth'});
 }
 $('project-new').addEventListener('click', () => editProject());
@@ -241,4 +252,45 @@ $('task-form').addEventListener('submit', async event => {
 });
 $('refresh').addEventListener('click', () => Promise.all([refresh(), loadAgents(), loadProjects()]).catch(showError));
 start().catch(showError);
-setInterval(async () => { if (polling || document.hidden) return; polling = true; try { await refresh(); } catch (e) { text('connection', '연결 확인 필요'); showError(e); } finally { polling = false; } }, 2500);
+setInterval(async () => { if (polling || document.hidden) return; polling = true; try { await refresh(); await loadMaterials(); } catch (e) { text('connection', '연결 확인 필요'); showError(e); } finally { polling = false; } }, 2500);
+
+async function loadMaterials() {
+  const scope = currentProject;
+  if (!scope || !materialUploads) { $('materials').replaceChildren(); materialRows = []; return; }
+  try {
+    const result = await api(`/v1/projects/${encodeURIComponent(scope)}/materials`);
+    if (scope !== currentProject) return;
+    materialRows = result.documents; $('materials').replaceChildren();
+    const labels = {queued:'대기', indexing:'처리 중', ready:'준비 완료', failed:'실패'};
+    for (const item of materialRows) {
+      const row = block($('materials'), 'source', `${item.filename} · ${labels[item.status] || item.status} · v${item.version} · ${item.chunks}개 조각\n${item.error || ''}`);
+      if (item.status === 'failed') {
+        const button = document.createElement('button'); button.type = 'button'; button.textContent = '재시도';
+        button.disabled = projects.find(p => p.project_id === scope)?.status !== 'active';
+        button.addEventListener('click', async () => {
+          button.disabled = true;
+          try { await api(`/v1/projects/${encodeURIComponent(scope)}/materials/${encodeURIComponent(item.id)}/retry`, {method:'POST', body:JSON.stringify({version:item.version})}); await loadMaterials(); }
+          catch(e) { text('material-message', e.message); }
+        }); row.append(button);
+      }
+    }
+    if (!materialRows.length) block($('materials'), 'muted', '등록한 자료가 없습니다.');
+  } catch(e) { if (scope === currentProject) text('material-message', e.message); }
+}
+$('material-refresh').addEventListener('click', loadMaterials);
+$('material-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (materialBusy || !currentProject) return;
+  const scope = currentProject, file = $('material-file').files[0];
+  if (!file || !file.size || file.size > 10 * 1024 * 1024) { text('material-message', '1 byte ~ 10 MiB 파일을 선택하세요.'); return; }
+  const old = materialRows.find(item => item.filename.toLowerCase() === file.name.toLowerCase());
+  if (old && !confirm(`${file.name} 자료를 확인·교체할까요? 같은 내용이면 기존 자료를 유지합니다.`)) return;
+  materialBusy = true; $('material-upload').disabled = true;
+  try {
+    const encoded = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onerror = () => reject(new Error('파일 읽기 실패')); reader.onload = () => resolve(String(reader.result).split(',')[1]); reader.readAsDataURL(file); });
+    await api(`/v1/projects/${encodeURIComponent(scope)}/materials`, {method:'POST', body:JSON.stringify({filename:file.name, content_base64:encoded, version:old?.version || 0})});
+    if (scope === currentProject) { $('material-file').value = ''; await loadProjects(); text('material-message', '접수되었습니다. 아래 목록에서 처리 결과를 확인하세요.'); }
+  } catch(e) {
+    if (scope === currentProject) { await loadProjects(); text('material-message', e.message); }
+  } finally { materialBusy = false; $('material-upload').disabled = projects.find(p => p.project_id === currentProject)?.status !== 'active'; }
+});

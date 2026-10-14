@@ -135,9 +135,26 @@ class ProjectStore:
         with closing(self.connect()) as db, db:
             db.execute('BEGIN IMMEDIATE')
             data = self._get(db, project_id, version)
+            if data.get('materials_namespace') and any(values[key] != data[key] for key in ('knowledge_project', 'subject_id')):
+                raise ProjectConflict('Registered materials lock the document Project and subject binding')
             data.update(values, status=status, version=data['version'] + 1, updated_at=_now())
             db.execute('UPDATE projects SET data=? WHERE project_id=?', (json.dumps(data), project_id))
             self._event(db, project_id, 'update', data)
+        return data
+
+    def bind_materials(self, project_id):
+        """Reserve a durable upload namespace and search binding before network I/O."""
+        with closing(self.connect()) as db, db:
+            db.execute('BEGIN IMMEDIATE')
+            data = self._get(db, project_id)
+            if data['status'] != 'active':
+                raise ProjectConflict('Archived project cannot register materials')
+            if not data.get('materials_namespace'):
+                namespace = 'ao-' + uuid4().hex
+                data.update(materials_namespace=namespace, knowledge_project=data['knowledge_project'] or namespace,
+                            version=data['version'] + 1, updated_at=_now())
+                db.execute('UPDATE projects SET data=? WHERE project_id=?', (json.dumps(data), project_id))
+                self._event(db, project_id, 'bind_materials', data)
         return data
 
     def notes(self, project_id):

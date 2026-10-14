@@ -193,7 +193,7 @@ class TaskWorker:
 def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
                health_checks: dict | None = None, queue_capacity: int = 20,
                openai_api_key: str = "", chat_wait_seconds: float = 600,
-               agent_manager=None, managed_dispatcher=None):
+               agent_manager=None, managed_dispatcher=None, material_client=None):
     store = engine.state_store
     workspace = store.get_workspace(workspace_id)
     if workspace['domain_id'] != engine.domain.domain_id:
@@ -216,6 +216,8 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
     # Routes resolve the catalog after lifespan initializes it under the worker lock.
     from .project_api import install_project_routes
     install_project_routes(app, worker)
+    from .material_api import install_material_routes, MAX_BODY_BYTES
+    install_material_routes(app, worker, material_client)
     if agent_manager is not None:
         if managed_dispatcher is None:
             raise ValueError('managed dispatcher is required for Agent management')
@@ -244,7 +246,8 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
             body = bytearray()
             async for chunk in request.stream():
                 body.extend(chunk)
-                if len(body) > 65536:
+                limit = MAX_BODY_BYTES if request.method == 'POST' and request.url.path.startswith('/v1/projects/') and request.url.path.endswith('/materials') else 65536
+                if len(body) > limit:
                     return JSONResponse({'detail': 'Request too large'}, status_code=413)
             request._body = bytes(body)
         response = await call_next(request)
@@ -270,6 +273,7 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
     @app.get('/v1/workspace')
     def workspace_info():
         return {'workspace_id': workspace_id, 'name': workspace['name'],
+                'material_uploads_enabled': material_client is not None,
                 'domain_id': engine.domain.domain_id,
                 'subject_label': engine.domain.subject_label,
                 'allowed_request_kinds': engine.domain.allowed_kinds,

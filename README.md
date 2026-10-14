@@ -4,6 +4,10 @@ Hermes Agent를 Runtime으로 사용해 EquipmentRAG, ContextManager와 제한�
 조정하는 사내 Agent Orchestra이다. 설비개발뿐 아니라 일반 문서·프로젝트 업무를
 Domain Pack과 공통 프로젝트 공간으로 구성한다.
 
+0.8.0 개발본은 [프로젝트 자료 등록·자동 인덱싱](docs/PROJECT_MATERIALS.md)을 추가합니다.
+A/O 화면에서 파일 등록·교체·실패 재시도와 처리 상태 조회를 제공하며,
+EquipmentRAG의 managed ingestion API(0.3.0-rc.3)와 함께 배포해야 합니다.
+
 ## 고정 원칙
 
 - Hermes Core는 수정하지 않는다.
