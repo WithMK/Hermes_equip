@@ -17,6 +17,30 @@
 </form>
 <section id="project-panel" hidden>
 <h2 id="project-title"></h2><p id="project-summary"></p><p id="project-binding" class="muted"></p>
+<form id="assignment-form">
+<h3>프로젝트 Agent 배정</h3>
+<p>프로젝트별 구성을 선택하면 기본 담당이 먼저 수행하고, 허용된 전문 Agent에 추가 위임합니다. 설정은 업무 시작 시 고정되며 진행 중인 업무에는 변경이 반영되지 않습니다.</p>
+<p id="assignment-status" role="status"></p><p id="assignment-error" role="alert"></p>
+<fieldset id="assignment-fields" disabled>
+<legend>배정 설정</legend>
+<div class="fields"><label>배정 방식<select id="assignment-mode"><option value="legacy">기존 방식</option><option value="custom">프로젝트별 구성</option></select></label><label>기본 담당 Agent<select id="assignment-default"></select></label><label>최대 추가 위임 횟수<input id="assignment-limit" type="number" min="0" max="8" value="4" required></label></div>
+<label><input id="assignment-delegation" type="checkbox" checked> 전문 Agent 위임 허용</label>
+<div class="form-footer"><label>배정할 Agent<select id="assignment-candidate"></select></label><button id="assignment-add" type="button">배정 추가</button></div>
+<div id="assignment-rows"></div>
+<div class="form-footer"><span class="muted">배정 해제는 이 프로젝트의 연결만 제거합니다.</span><button id="assignment-save" type="submit">배정 설정 저장</button></div>
+</fieldset>
+<button id="assignment-reload" type="button">저장된 설정 다시 불러오기</button>
+<h3>배정 JSON 가져오기 · 내보내기</h3>
+<p class="muted">내보내기는 서버에 저장된 설정을 사용합니다. 가져오기는 현재 저장된 배정 전체를 교체합니다. Agent ID는 이 서버에 미리 등록되어 있어야 합니다.</p>
+<a id="assignment-export" hidden>저장된 배정 JSON 다운로드</a>
+<fieldset id="assignment-import-fields" disabled><legend>설정 가져오기</legend>
+<label>JSON 파일 (최대 1 MiB)<input id="assignment-import-file" type="file" accept=".json,application/json"></label>
+<label>또는 JSON 붙여넣기<textarea id="assignment-import-text" rows="6" maxlength="1048576"></textarea></label>
+<button id="assignment-preview" type="button">변경 내용 비교</button>
+<div id="assignment-diff"></div><p id="assignment-import-message" role="status"></p>
+<button id="assignment-apply-import" type="button" disabled>확인한 설정 적용</button>
+</fieldset>
+</form>
 <h3>프로젝트 자료</h3><p id="material-mode" class="muted"></p>
 <form id="material-form" hidden><label>자료 파일<input id="material-file" type="file" accept=".md,.txt,.pdf,.docx,.pptx,.xlsx" required></label><p class="muted">파일당 최대 10 MiB. 같은 이름의 변경 파일은 확인 후 교체합니다. 등록하면 자동으로 검색 자료를 준비합니다.</p><button id="material-upload" type="submit">등록 · 자동 인덱싱</button></form>
 <button id="material-refresh" type="button">자료 상태 새로고침</button><p id="material-message" role="status"></p><div id="materials"></div>
@@ -28,7 +52,7 @@
 </section>
 <form id="agent-editor" hidden>
 <h2 id="agent-editor-title">Agent 등록</h2>
-<p>역할별로 한 Agent만 활성화됩니다. 저장한 설정은 시험 호출 후 활성화해주세요. 수정하면 기존 활성 상태가 해제됩니다.</p>
+<p>기본 활성화는 기존 방식의 역할별 담당을 교체합니다. 프로젝트 전용 활성화는 기존 담당을 유지하며 다른 프로필을 추가 활성화합니다. 저장한 설정은 시험 호출 후 활성화해주세요. 수정하면 기존 활성 상태가 해제됩니다.</p>
 <div class="fields"><label>Agent ID<input id="agent-id" required maxlength="64" pattern="[a-z0-9][a-z0-9_-]{0,63}"></label><label>이름<input id="agent-name" required maxlength="120"></label><label>역할<select id="agent-role"></select></label></div>
 <label>추가 역할 지침<textarea id="agent-instructions" rows="5" maxlength="4000" placeholder="예: 근거와 가설을 구분하고 확인 순서를 표로 작성합니다."></textarea></label>
 <p class="muted">모델·연결 서버는 선택한 역할의 서버 설정을 사용합니다. 여기서 서버 프로세스나 도구 권한을 변경하지 않습니다.</p>
