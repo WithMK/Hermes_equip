@@ -5,11 +5,12 @@ let manageAgents = false, editingAgent = null;
 let currentProject = localStorage.getItem('ao-project') || '', projects = [], editingProject = null, editingNote = null;
 let workspaceName = '', projectTasks = [], activeTask = null;
 let materialUploads = false, materialRows = [], materialBusy = false;
+let assignmentState = null, assignmentProfiles = [], assignmentDirty = false, assignmentSaving = false, assignmentLoad = 0;
 const terminal = new Set(['completed', 'failed', 'interrupted']);
 async function api(path, options = {}) {
   const response = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', 'X-AO-Request': '1', ...(options.headers || {}) } });
   const data = response.status === 204 ? null : await response.json();
-  if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : `요청 실패 (${response.status})`);
+  if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : data.detail?.issues?.join('\n') || `요청 실패 (${response.status})`);
   return data;
 }
 function text(id, value) { $(id).textContent = value || ''; }
@@ -118,7 +119,7 @@ async function showProject() {
   $('equipment').value = project?.subject_id || ''; $('equipment').readOnly = !!project?.subject_id;
   text('workspace-name', project ? `${workspaceName} / ${project.name}` : workspaceName);
   resetNote(); $('project-history').hidden = true;
-  if (!project) return;
+  if (!project) { assignmentState = null; assignmentDirty = false; assignmentLoad++; return; }
   text('project-title', project.name); text('project-summary', project.description);
   text('project-binding', `${project.domain_id} · ${project.status} · 문서 Project: ${project.knowledge_project || '전체'} · 코드 Repository: ${project.repository || '전체'}`);
   $('note-save').disabled = project.status === 'archived';
@@ -127,6 +128,7 @@ async function showProject() {
   $('material-refresh').hidden = !materialUploads;
   text('material-mode', materialUploads ? '준비 완료 자료는 이 프로젝트의 RAG 검색에 사용됩니다. 검색 제외 자료는 원본을 보관하며 복원할 수 있습니다.' : '자료 등록 서버 연결이 설정되지 않았습니다.');
   text('material-message', '');
+  await loadAssignments();
   await loadMaterials();
   await loadNotes();
 }
@@ -171,6 +173,10 @@ $('project-new').addEventListener('click', () => editProject());
 $('project-edit').addEventListener('click', () => editProject(projects.find(p => p.project_id === currentProject)));
 $('project-cancel').addEventListener('click', () => { $('project-editor').hidden = true; });
 $('project-select').addEventListener('change', async () => {
+  if (assignmentSaving || (assignmentDirty && !confirm('저장하지 않은 Agent 배정 변경을 버리고 프로젝트를 전환할까요?'))) {
+    $('project-select').value = currentProject; return;
+  }
+  assignmentDirty = false;
   currentProject = $('project-select').value; localStorage.setItem('ao-project', currentProject);
   selected = ''; artifactKey = ''; activeTask = null; $('detail').hidden = true;
   $('task-source').value = ''; $('session').value = ''; $('project-editor').hidden = true;
@@ -330,3 +336,132 @@ async function loadWatches(scope) {
   }
   if (!result.watches.length) block($('material-watches'), 'muted', '지정한 폴더가 없습니다. 운영자가 서버의 폴더 감시 설정을 추가하면 표시됩니다.');
 }
+
+function assignmentEditable() {
+  return !!assignmentState && assignmentState.project_id === currentProject && manageAgents &&
+    projects.find(p => p.project_id === currentProject)?.status === 'active' && !assignmentSaving;
+}
+function assignmentChanged() {
+  assignmentDirty = true;
+  text('assignment-status', '저장하지 않은 변경 사항이 있습니다.');
+}
+function assignmentOptions(select, entries, selectedValue, emptyLabel) {
+  select.replaceChildren();
+  const empty = document.createElement('option'); empty.value = ''; empty.textContent = emptyLabel; select.append(empty);
+  for (const [value, label] of entries) {
+    const option = document.createElement('option'); option.value = value; option.textContent = label; select.append(option);
+  }
+  if (selectedValue && !entries.some(([value]) => value === selectedValue)) {
+    const unavailable = document.createElement('option'); unavailable.value = selectedValue;
+    unavailable.textContent = `${selectedValue} (사용 불가 — 다시 선택하세요)`; select.append(unavailable);
+  }
+  select.value = selectedValue;
+}
+function refreshAssignmentChoices() {
+  const config = assignmentState.configuration;
+  const assigned = new Set(config.agents.map(a => a.agent_id));
+  assignmentOptions($('assignment-candidate'), assignmentProfiles.filter(p => p.available && !assigned.has(p.agent_id))
+    .map(p => [p.agent_id, `${p.name} · ${p.role}${p.enabled ? '' : ' (비활성)'}`]), '', 'Agent 선택');
+  assignmentOptions($('assignment-default'), config.agents.filter(a => a.enabled && assignmentProfiles.some(p => p.agent_id === a.agent_id && p.available && p.enabled))
+    .map(a => [a.agent_id, assignmentProfiles.find(p => p.agent_id === a.agent_id)?.name || a.agent_id]), config.default_agent_id, '기본 담당 미지정');
+  $('assignment-add').disabled = !assignmentEditable() || config.agents.length >= 32 || $('assignment-candidate').options.length < 2;
+}
+function renderAssignments() {
+  const config = assignmentState.configuration;
+  $('assignment-fields').disabled = !assignmentEditable();
+  $('assignment-mode').value = config.mode;
+  $('assignment-limit').value = config.max_delegations;
+  $('assignment-delegation').checked = config.delegation_enabled;
+  $('assignment-rows').replaceChildren();
+  for (const item of config.agents) {
+    const profile = assignmentProfiles.find(p => p.agent_id === item.agent_id);
+    const row = block($('assignment-rows'), 'source', `${profile?.name || item.agent_id} · ${item.agent_id} · ${profile?.role || '등록 정보 없음'}\n${profile?.enabled && profile?.available ? '공통 Agent 활성' : '공통 Agent 비활성 또는 사용 불가'}`);
+    row.dataset.agentId = item.agent_id;
+    const field = (labelText, property, type, limit) => {
+      const label = document.createElement('label'); label.append(document.createTextNode(labelText));
+      const input = document.createElement(type === 'textarea' ? 'textarea' : 'input');
+      input.dataset.field = property;
+      if (type === 'checkbox') { input.type = type; input.checked = item[property]; }
+      else { input.value = item[property]; input.maxLength = limit; if (type === 'textarea') input.rows = 3; }
+      input.addEventListener('input', () => {
+        item[property] = type === 'checkbox' ? input.checked : input.value;
+        assignmentChanged();
+        if (property === 'enabled') refreshAssignmentChoices();
+      });
+      label.append(input); row.append(label);
+    };
+    field('이 프로젝트에서 사용', 'enabled', 'checkbox');
+    field('자동 위임 대상으로 사용', 'allow_delegation', 'checkbox');
+    field('프로젝트 내 역할', 'assignment', 'text', 120);
+    field('프로젝트 추가 지침', 'instructions', 'textarea', 4000);
+    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '배정 해제';
+    remove.addEventListener('click', () => {
+      config.agents = config.agents.filter(a => a !== item);
+      if (config.default_agent_id === item.agent_id) config.default_agent_id = '';
+      assignmentChanged(); renderAssignments();
+    }); row.append(remove);
+  }
+  if (!config.agents.length) block($('assignment-rows'), 'muted', '배정된 Agent가 없습니다.');
+  refreshAssignmentChoices();
+}
+async function loadAssignments(force = false) {
+  const scope = currentProject;
+  if (!scope || assignmentSaving) return;
+  // Polls and global refresh must not overwrite a local draft.
+  if (!force && assignmentDirty && assignmentState?.project_id === scope) { renderAssignments(); return; }
+  const request = ++assignmentLoad;
+  $('assignment-fields').disabled = true;
+  text('assignment-error', ''); text('assignment-status', '배정 설정을 불러오는 중입니다.');
+  try {
+    const [state, profiles] = await Promise.all([api(`/v1/projects/${encodeURIComponent(scope)}/agent-assignments`), api('/v1/agents')]);
+    if (scope !== currentProject || request !== assignmentLoad) return;
+    assignmentState = state; assignmentProfiles = profiles; assignmentDirty = false;
+    text('assignment-status', `설정 v${state.version} · 실제 실행은 기존 방식${manageAgents ? '' : ' · Agent 관리 연결이 없어 읽기 전용'}${projects.find(p => p.project_id === scope)?.status === 'archived' ? ' · 보관 프로젝트: 읽기 전용' : ''}`);
+    text('assignment-error', state.validation_issues.join('\n'));
+    renderAssignments();
+  } catch (error) {
+    if (scope !== currentProject || request !== assignmentLoad) return;
+    assignmentState = null; $('assignment-rows').replaceChildren();
+    text('assignment-status', '배정 설정을 불러오지 못했습니다.'); text('assignment-error', error.message);
+  }
+}
+$('assignment-add').addEventListener('click', () => {
+  if (!assignmentEditable()) return;
+  const profile = assignmentProfiles.find(p => p.agent_id === $('assignment-candidate').value);
+  if (!profile || assignmentState.configuration.agents.some(a => a.agent_id === profile.agent_id)) return;
+  assignmentState.configuration.agents.push({agent_id:profile.agent_id, assignment:'', instructions:'', enabled:!!profile.enabled, allow_delegation:true});
+  assignmentChanged(); renderAssignments();
+});
+for (const [id, property] of [['assignment-mode','mode'], ['assignment-default','default_agent_id'], ['assignment-limit','max_delegations'], ['assignment-delegation','delegation_enabled']]) {
+  $(id).addEventListener('input', () => {
+    if (!assignmentEditable()) return;
+    assignmentState.configuration[property] = id === 'assignment-limit' ? Number($(id).value) : id === 'assignment-delegation' ? $(id).checked : $(id).value;
+    assignmentChanged();
+  });
+}
+$('assignment-reload').addEventListener('click', () => {
+  if (assignmentSaving || (assignmentDirty && !confirm('편집 중인 변경을 버리고 저장된 설정을 불러올까요?'))) return;
+  loadAssignments(true);
+});
+$('assignment-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!assignmentEditable()) return;
+  const scope = currentProject;
+  const payload = JSON.stringify({version:assignmentState.version, configuration:assignmentState.configuration});
+  assignmentSaving = true; $('assignment-fields').disabled = true; $('assignment-reload').disabled = true;
+  text('assignment-error', '');
+  try {
+    const saved = await api(`/v1/projects/${encodeURIComponent(scope)}/agent-assignments`, {method:'PUT', body:payload});
+    if (scope !== currentProject) return;
+    assignmentState = saved; assignmentDirty = false;
+    text('assignment-status', `설정 v${saved.version} 저장 완료 · 실제 실행은 기존 방식`);
+  } catch (error) {
+    if (scope === currentProject) text('assignment-error', `${error.message}\n입력 내용은 유지했습니다. 충돌 시 저장된 설정을 다시 불러온 뒤 수정하세요.`);
+  } finally {
+    assignmentSaving = false; $('assignment-reload').disabled = false;
+    if (scope === currentProject && assignmentState) renderAssignments();
+  }
+});
+window.addEventListener('beforeunload', event => {
+  if (assignmentDirty || assignmentSaving) { event.preventDefault(); event.returnValue = ''; }
+});

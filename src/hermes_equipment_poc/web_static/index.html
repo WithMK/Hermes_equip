@@ -17,6 +17,20 @@
 </form>
 <section id="project-panel" hidden>
 <h2 id="project-title"></h2><p id="project-summary"></p><p id="project-binding" class="muted"></p>
+<form id="assignment-form">
+<h3>프로젝트 Agent 배정</h3>
+<p>배정 설정을 미리 구성하고 저장할 수 있습니다. 현재 업무는 기존 Agent 실행 방식을 사용하며, 이 배정의 실제 실행 적용은 다음 단계에서 제공됩니다.</p>
+<p id="assignment-status" role="status"></p><p id="assignment-error" role="alert"></p>
+<fieldset id="assignment-fields" disabled>
+<legend>배정 설정</legend>
+<div class="fields"><label>배정 방식<select id="assignment-mode"><option value="legacy">기존 방식</option><option value="custom">프로젝트별 구성 (실행 적용 대기)</option></select></label><label>기본 담당 Agent<select id="assignment-default"></select></label><label>최대 위임 횟수<input id="assignment-limit" type="number" min="0" max="8" value="4" required></label></div>
+<label><input id="assignment-delegation" type="checkbox" checked> 전문 Agent 위임 허용</label>
+<div class="form-footer"><label>배정할 Agent<select id="assignment-candidate"></select></label><button id="assignment-add" type="button">배정 추가</button></div>
+<div id="assignment-rows"></div>
+<div class="form-footer"><span class="muted">배정 해제는 이 프로젝트의 연결만 제거합니다.</span><button id="assignment-save" type="submit">배정 설정 저장</button></div>
+</fieldset>
+<button id="assignment-reload" type="button">저장된 설정 다시 불러오기</button>
+</form>
 <h3>프로젝트 자료</h3><p id="material-mode" class="muted"></p>
 <form id="material-form" hidden><label>자료 파일<input id="material-file" type="file" accept=".md,.txt,.pdf,.docx,.pptx,.xlsx" required></label><p class="muted">파일당 최대 10 MiB. 같은 이름의 변경 파일은 확인 후 교체합니다. 등록하면 자동으로 검색 자료를 준비합니다.</p><button id="material-upload" type="submit">등록 · 자동 인덱싱</button></form>
 <button id="material-refresh" type="button">자료 상태 새로고침</button><p id="material-message" role="status"></p><div id="materials"></div>
