@@ -102,6 +102,25 @@ namespace는 등록 목록과 파일 소유권을 구분하며 사용자 권한 
 
 ## 검증 및 대상 PC 확인
 
+### 색인 현황 집계
+
+프로젝트 자료 상단에서 등록·완료·처리 중·대기·실패·제외·삭제 수와 갱신 필요 수를
+확인합니다. 화면은 기존 주기(약 2.5초)와 자료 새로고침 버튼으로 갱신됩니다.
+`GET /v1/projects/{project_id}/materials/summary`도 같은 집계를 제공합니다.
+
+갱신 필요는 활성 문서의 대기/진행/실패 및 확인된 폴더 미반영 파일을 합친 값입니다.
+같은 source_key의 문서는 중복 계산하지 않습니다. 이미 접수한 폴더 파일은 RAG 문서
+상태로 계산하고, 최신 완료 상태를 오래된 폴더 점검의 pending 상태보다 우선합니다.
+검색 제외/삭제 의도인 문서와 원본이 사라진 파일은 자동 갱신 대상에 포함하지 않습니다.
+
+폴더 수치는 마지막 점검 결과입니다. 아직 읽지 못한 변경은 `확인 대기`로 구분합니다.
+감시 미설정·중지·접근 오류 상태에서는 미색인 파일 전체 수를 확정하지 않습니다.
+RAG 연결이 실패하면 0개로 표시하지 않고 집계 실패를 표시합니다.
+임의 폴더와 CLI로 색인한 기존 문서·소스코드는 이 집계에 포함하지 않습니다.
+CLI 문서는 EquipmentRAG의 `python -m app.document_indexer --config config/config.yaml --dry-run`,
+소스코드는 `python -m app.indexer --config config/config.yaml --dry-run`으로 변경 예정 항목을
+별도로 확인합니다. dry-run은 자동 감시나 색인 실행을 시작하지 않습니다.
+
 ```powershell
 python -m unittest discover -s tests -v
 python tests/material_integration_smoke.py --rag-root ..\EquipmentRAG

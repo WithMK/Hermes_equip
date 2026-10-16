@@ -110,7 +110,7 @@ async function loadProjects() {
   await showProject();
 }
 async function showProject() {
-  materialRows = []; $('materials').replaceChildren(); $('material-file').value = '';
+  materialRows = []; $('materials').replaceChildren(); $('material-file').value = ''; text('material-summary', '');
   const project = projects.find(p => p.project_id === currentProject);
   $('project-panel').hidden = !project; $('project-edit').disabled = !project;
   $('use-memory').disabled = !project; $('task-source').disabled = !project;
@@ -256,7 +256,7 @@ setInterval(async () => { if (polling || document.hidden) return; polling = true
 
 async function loadMaterials() {
   const scope = currentProject;
-  if (!scope || !materialUploads) { $('materials').replaceChildren(); $('material-watches').replaceChildren(); materialRows = []; return; }
+  if (!scope || !materialUploads) { $('materials').replaceChildren(); $('material-watches').replaceChildren(); text('material-summary', '자료 등록 연결이 없어 집계할 수 없습니다.'); materialRows = []; return; }
   try {
     const result = await api(`/v1/projects/${encodeURIComponent(scope)}/materials`);
     if (scope !== currentProject) return;
@@ -288,8 +288,9 @@ async function loadMaterials() {
       }
     }
     if (!materialRows.length) block($('materials'), 'muted', '등록한 자료가 없습니다.');
+    await loadMaterialSummary(scope);
     await loadWatches(scope);
-  } catch(e) { if (scope === currentProject) text('material-message', e.message); }
+  } catch(e) { if (scope === currentProject) { text('material-message', e.message); text('material-summary', '자료 서비스 연결 실패 — 현재 수치를 확인할 수 없습니다.'); } }
 }
 $('material-refresh').addEventListener('click', loadMaterials);
 $('material-form').addEventListener('submit', async event => {
@@ -329,4 +330,15 @@ async function loadWatches(scope) {
     row.append(details);
   }
   if (!result.watches.length) block($('material-watches'), 'muted', '지정한 폴더가 없습니다. 운영자가 서버의 폴더 감시 설정을 추가하면 표시됩니다.');
+}
+
+async function loadMaterialSummary(scope) {
+  try {
+    const result = await api(`/v1/projects/${encodeURIComponent(scope)}/materials/summary`);
+    if (scope !== currentProject) return;
+    const c = result.counts, f = result.folder;
+    text('material-summary', `등록 문서 ${result.registered}개 · 색인 완료 ${c.ready}개 · 처리 중 ${c.indexing}개 · 대기 ${c.queued}개 · 실패 ${c.failed}개\n갱신 필요 ${result.needs_update}개 (대기·진행·실패 포함, 중복 제거) · 검색 제외 ${c.excluded}개 · 삭제 ${c.deleted}개\n폴더: 미등록 ${f.new}개 · 변경 미접수 ${f.changed}개 · 확인 대기 ${f.check_pending}개 · 오류 ${f.errors}개 · 원본 없음 ${f.missing}개\n${result.coverage_complete ? '지정 폴더 점검 완료' : '폴더 감시 미설정·중지·오류 또는 확인 대기 있음 — 전체 미색인 수는 확정할 수 없습니다.'} · 집계 ${new Date(result.observed_at).toLocaleTimeString()}`);
+  } catch (error) {
+    if (scope === currentProject) text('material-summary', `집계 실패: ${error.message}`);
+  }
 }

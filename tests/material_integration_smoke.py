@@ -111,6 +111,8 @@ def main():
                 break
             time.sleep(.02)
         assert document['status'] == 'ready', document
+        summary = api.get(path + '/summary')
+        assert summary['counts']['ready'] == 1 and summary['needs_update'] == 0, summary
         assert api.post(path, upload)['version'] == 1
         assert api.get('/v1/projects/beta/materials') == {'documents':[]}
         task = api.post('/v1/tasks', {'project_id':'alpha', 'objective':'E-024 구매 승인 전 절차?', 'request_kind':'document_task'})
@@ -123,6 +125,9 @@ def main():
         assert result['evidence'] and '내부 검토' in str(chat.calls), result
         # Verify the filter with real retrieval, not merely the registration list.
         binding = api.get('/v1/projects/alpha')['knowledge_project']
+        namespace = api.get('/v1/projects/alpha')['materials_namespace']
+        direct = JsonApiClient(rag_url, api_key=key).get('/v1/ingestion/' + namespace + '/summary')
+        assert direct['counts']['ready'] == 1 and direct['needs_indexing'] == 0, direct
         raw = JsonApiClient(rag_url)
         assert raw.post('/v1/retrieve', {'query':'E-024', 'source_type':'document', 'filters':{'document':{'project':binding}}, 'include_content':True})['result_count'] > 0
         assert raw.post('/v1/retrieve', {'query':'E-024', 'source_type':'document', 'filters':{'document':{'project':'other-project'}}})['result_count'] == 0
