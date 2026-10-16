@@ -5,6 +5,7 @@ let manageAgents = false, editingAgent = null;
 let currentProject = localStorage.getItem('ao-project') || '', projects = [], editingProject = null, editingNote = null;
 let workspaceName = '', projectTasks = [], activeTask = null;
 let materialUploads = false, materialRows = [], materialBusy = false;
+let assignmentPreview = null, assignmentPreviewRequest = 0;
 let assignmentState = null, assignmentProfiles = [], assignmentDirty = false, assignmentSaving = false, assignmentLoad = 0;
 const terminal = new Set(['completed', 'failed', 'interrupted']);
 async function api(path, options = {}) {
@@ -174,7 +175,7 @@ $('project-new').addEventListener('click', () => editProject());
 $('project-edit').addEventListener('click', () => editProject(projects.find(p => p.project_id === currentProject)));
 $('project-cancel').addEventListener('click', () => { $('project-editor').hidden = true; });
 $('project-select').addEventListener('change', async () => {
-  if (assignmentSaving || (assignmentDirty && !confirm('저장하지 않은 Agent 배정 변경을 버리고 프로젝트를 전환할까요?'))) {
+  if (assignmentSaving || ((assignmentDirty || $('assignment-import-text').value.trim()) && !confirm('저장하지 않은 Agent 배정 변경을 버리고 프로젝트를 전환할까요?'))) {
     $('project-select').value = currentProject; return;
   }
   assignmentDirty = false;
@@ -344,6 +345,7 @@ function assignmentEditable() {
     projects.find(p => p.project_id === currentProject)?.status === 'active' && !assignmentSaving;
 }
 function assignmentChanged() {
+  clearAssignmentPreview();
   assignmentDirty = true;
   text('assignment-status', '저장하지 않은 변경 사항이 있습니다.');
 }
@@ -371,6 +373,7 @@ function refreshAssignmentChoices() {
 function renderAssignments() {
   const config = assignmentState.configuration;
   $('assignment-fields').disabled = !assignmentEditable();
+  $('assignment-import-fields').disabled = !assignmentEditable();
   $('assignment-mode').value = config.mode;
   $('assignment-limit').value = config.max_delegations;
   $('assignment-delegation').checked = config.delegation_enabled;
@@ -410,7 +413,10 @@ async function loadAssignments(force = false) {
   const scope = currentProject;
   if (!scope || assignmentSaving) return;
   // Polls and global refresh must not overwrite a local draft.
-  if (!force && assignmentDirty && assignmentState?.project_id === scope) { renderAssignments(); return; }
+  if (!force && (assignmentDirty || $('assignment-import-text').value.trim()) && assignmentState?.project_id === scope) { renderAssignments(); return; }
+  clearAssignmentPreview();
+  $('assignment-import-text').value = ''; $('assignment-import-file').value = '';
+  $('assignment-export').hidden = true; $('assignment-import-fields').disabled = true;
   const request = ++assignmentLoad;
   $('assignment-fields').disabled = true;
   text('assignment-error', ''); text('assignment-status', '배정 설정을 불러오는 중입니다.');
@@ -418,6 +424,8 @@ async function loadAssignments(force = false) {
     const [state, profiles] = await Promise.all([api(`/v1/projects/${encodeURIComponent(scope)}/agent-assignments`), api('/v1/agents')]);
     if (scope !== currentProject || request !== assignmentLoad) return;
     assignmentState = state; assignmentProfiles = profiles; assignmentDirty = false;
+    $('assignment-export').href = `/v1/projects/${encodeURIComponent(scope)}/agent-assignments/export`;
+    $('assignment-export').hidden = false;
     text('assignment-status', `설정 v${state.version} · ${state.execution_mode === 'project' ? '프로젝트 배정으로 실행' : '기존 방식으로 실행'}${manageAgents ? '' : ' · Agent 관리 연결이 없어 읽기 전용'}${projects.find(p => p.project_id === scope)?.status === 'archived' ? ' · 보관 프로젝트: 읽기 전용' : ''}`);
     text('assignment-error', state.validation_issues.join('\n'));
     renderAssignments();
@@ -449,8 +457,9 @@ $('assignment-form').addEventListener('submit', async event => {
   event.preventDefault();
   if (!assignmentEditable()) return;
   const scope = currentProject;
+  clearAssignmentPreview();
   const payload = JSON.stringify({version:assignmentState.version, configuration:assignmentState.configuration});
-  assignmentSaving = true; $('assignment-fields').disabled = true; $('assignment-reload').disabled = true;
+  assignmentSaving = true; $('assignment-import-fields').disabled = true; $('assignment-fields').disabled = true; $('assignment-reload').disabled = true;
   text('assignment-error', '');
   try {
     const saved = await api(`/v1/projects/${encodeURIComponent(scope)}/agent-assignments`, {method:'PUT', body:payload});
@@ -465,5 +474,72 @@ $('assignment-form').addEventListener('submit', async event => {
   }
 });
 window.addEventListener('beforeunload', event => {
-  if (assignmentDirty || assignmentSaving) { event.preventDefault(); event.returnValue = ''; }
+  if (assignmentDirty || assignmentSaving || $('assignment-import-text').value.trim()) { event.preventDefault(); event.returnValue = ''; }
+});
+
+function clearAssignmentPreview() {
+  assignmentPreview = null; assignmentPreviewRequest++;
+  $('assignment-diff').replaceChildren(); text('assignment-import-message', '');
+  $('assignment-apply-import').disabled = true;
+}
+$('assignment-import-text').addEventListener('input', clearAssignmentPreview);
+$('assignment-import-file').addEventListener('change', async () => {
+  clearAssignmentPreview();
+  const request = assignmentPreviewRequest, scope = currentProject;
+  const file = $('assignment-import-file').files[0];
+  $('assignment-import-text').value = '';
+  if (!file) return;
+  if (file.size > 1048576) { text('assignment-import-message', 'JSON 파일은 최대 1 MiB입니다.'); return; }
+  try {
+    const content = await file.text();
+    if (scope !== currentProject || request !== assignmentPreviewRequest) return;
+    $('assignment-import-text').value = content;
+  } catch { text('assignment-import-message', '파일을 읽을 수 없습니다.'); }
+});
+$('assignment-preview').addEventListener('click', async () => {
+  if (!assignmentEditable()) return;
+  if (assignmentDirty && !confirm('가져오기는 저장된 설정과 비교하며, 적용하면 현재 편집 내용을 교체합니다. 계속할까요?')) return;
+  clearAssignmentPreview();
+  const request = assignmentPreviewRequest, scope = currentProject;
+  try {
+    const raw = $('assignment-import-text').value.replace(/^\uFEFF/, '');
+    if (new TextEncoder().encode(raw).length > 1048576) throw new Error('JSON은 최대 1 MiB입니다.');
+    const document = JSON.parse(raw);
+    const result = await api(`/v1/projects/${encodeURIComponent(scope)}/agent-assignments/import-preview`,
+      {method:'POST', body:JSON.stringify({version:assignmentState.version, document})});
+    if (scope !== currentProject || request !== assignmentPreviewRequest) return;
+    assignmentPreview = result;
+    const labels = {mode:'배정 방식', default_agent_id:'기본 담당', delegation_enabled:'추가 위임 허용', max_delegations:'최대 추가 위임 횟수'};
+    for (const change of result.changes) {
+      block($('assignment-diff'), 'source', `${labels[change.field] || change.field}\n현재: ${JSON.stringify(change.before, null, 2)}\n가져오기: ${JSON.stringify(change.after, null, 2)}`);
+    }
+    text('assignment-import-message', result.validation_issues.length ? result.validation_issues.join('\n') : result.changes.length ? '변경 내용을 확인한 뒤 적용하세요. 아직 저장하지 않았습니다.' : '저장된 설정과 같습니다. 적용할 변경이 없습니다.');
+    $('assignment-apply-import').disabled = !result.can_apply;
+  } catch (error) {
+    if (scope === currentProject && request === assignmentPreviewRequest) text('assignment-import-message', error instanceof SyntaxError ? '올바른 JSON을 입력하세요.' : error.message);
+  }
+});
+$('assignment-apply-import').addEventListener('click', async () => {
+  if (!assignmentEditable() || !assignmentPreview?.can_apply || assignmentPreview.project_id !== currentProject) return;
+  const preview = assignmentPreview, scope = currentProject;
+  if (!confirm('확인한 JSON 설정으로 이 프로젝트의 저장된 배정을 교체할까요?')) return;
+  assignmentSaving = true; $('assignment-fields').disabled = true; $('assignment-import-fields').disabled = true; $('assignment-reload').disabled = true;
+  try {
+    const saved = await api(`/v1/projects/${encodeURIComponent(scope)}/agent-assignments`,
+      {method:'PUT', body:JSON.stringify({version:preview.version, configuration:preview.configuration})});
+    if (scope !== currentProject) return;
+    assignmentState = saved; assignmentDirty = false;
+    clearAssignmentPreview();
+    $('assignment-import-text').value = ''; $('assignment-import-file').value = '';
+    text('assignment-status', `설정 v${saved.version} 가져오기 완료 · 다음 업무 시작부터 적용`);
+    text('assignment-error', ''); text('assignment-import-message', '가져온 설정을 저장했습니다.');
+  } catch (error) {
+    if (scope === currentProject) {
+      clearAssignmentPreview();
+      text('assignment-import-message', `${error.message}\nJSON 입력은 유지했습니다. 최신 상태를 확인하고 다시 비교하세요.`);
+    }
+  } finally {
+    assignmentSaving = false; $('assignment-reload').disabled = false;
+    if (scope === currentProject && assignmentState) renderAssignments();
+  }
 });

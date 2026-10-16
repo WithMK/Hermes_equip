@@ -1,4 +1,4 @@
-# 프로젝트별 Agent 배정 — 1~3단계 (0.10.0)
+# 프로젝트별 Agent 배정 — 1~4단계 (0.10.0)
 
 배정 편집·저장과 실제 업무 실행을 연결합니다. 서버는 `--enable-specialists`로
 실행해야 합니다. custom 모드의 유효한 설정은 다음 업무가 실행을 시작할 때 적용됩니다.
@@ -61,6 +61,45 @@ NODE_PATH=/tmp/ao-ui-test/node_modules python tests/run_assignment_ui_smoke.py
 - 최초 저장은 version 0, 이후에는 조회한 배정 version 전달. 충돌은 409
 - 활성 프로젝트에서만 변경 가능. 보관 프로젝트는 조회만 가능
 - Agent 관리 연결이 없는 경우 조회는 가능하며 저장은 503
+- GET `/v1/projects/{project_id}/agent-assignments/export`: 저장된 설정 JSON 다운로드
+- POST `/v1/projects/{project_id}/agent-assignments/import-preview`: 대상 버전과 가져올 JSON 비교 (쓰기 없음)
+
+## JSON 가져오기·내보내기
+
+프로젝트 화면에서 `저장된 배정 JSON 다운로드`를 누르면 이식 가능한 설정을 받습니다.
+이 파일에는 프로젝트 ID, 배정 저장 버전, 공통 Agent 프로필/주소/인증키가 포함되지 않습니다.
+Agent는 ID로 참조하므로 다른 서버에서는 해당 ID의 Agent를 먼저 등록·시험·활성화하세요.
+
+```json
+{
+  "format": "hermes-project-agents",
+  "format_version": 1,
+  "configuration": {
+    "schema_version": 1,
+    "mode": "legacy",
+    "default_agent_id": "",
+    "agents": [],
+    "delegation_enabled": true,
+    "max_delegations": 4
+  }
+}
+```
+
+파일을 직접 수정한 뒤 UI의 파일 선택 또는 JSON 붙여넣기로 가져올 수 있습니다.
+UI 입력 제한은 UTF-8 기준 1 MiB입니다. `변경 내용 비교`로 기본 담당·위임 정책·Agent
+추가/변경/제거를 확인하고 `확인한 설정 적용`을 눌러 저장합니다. 전체 배정을 교체하며
+병합 방식은 아닙니다. 내보내기는 편집 중인 초안이 아닌 서버에 저장된 설정을 사용합니다.
+
+비교 API body는 `{"version": 대상의현재버전, "document": 위JSON}`입니다.
+응답은 정규화한 configuration, changes, validation_issues, can_apply를 포함합니다.
+비교는 저장하지 않습니다. 변경이 없거나 오류가 있으면 UI 적용 버튼을 비활성화합니다.
+적용은 기존 PUT API에 비교 응답의 version/configuration을 전달하고 Agent 상태와 버전을
+다시 검증합니다. 비교 뒤 다른 사용자가 저장했다면 409, Agent를 비활성화했다면 422입니다.
+UI에서 JSON이나 배정 편집 내용을 바꾸면 이전 비교 결과는 무효화됩니다.
+실패 시 JSON 입력을 유지합니다. 필요한 입력을 복사해 둔 뒤 저장된 설정을 다시 불러와
+최신 버전 기준으로 비교하세요. 보관 프로젝트는 내보내기만 가능하며 변경할 수 없습니다.
+
+## PUT 설정 예시
 
 ```json
 {
@@ -98,8 +137,21 @@ NODE_PATH=/tmp/ao-ui-test/node_modules python tests/run_assignment_ui_smoke.py
 배정 버전은 독립적입니다. 변경 이력은 프로젝트 history에 남습니다.
 schema 1→2 자동 마이그레이션을 수행하므로 업데이트 전에 상태 DB를 백업하세요.
 
-## 후속 단계
+## 완료 범위 및 대상 PC 확인
 
-2. 프로젝트 화면에서 배정 편집 및 저장 — 완료
-3. 프로젝트별 프로필 선택, 실행 시작 시 설정 고정, 실제 위임 적용 및 결과 표시 — 완료
-4. JSON 가져오기/내보내기와 적용 전 비교, 대상 PC 통합 검증
+1. 프로젝트별 설정 저장·검증 API — 완료
+2. 프로젝트 화면 배정 편집 — 완료
+3. 실행 시작 시 설정 고정 및 실제 위임 적용 — 완료
+4. JSON 가져오기/내보내기, 적용 전 비교 및 자동 통합 검증 — 완료
+
+대상 PC에서는 기존 상태 DB를 백업하고 0.10.0 변경을 배포한 뒤 다음을 확인하세요.
+
+1. 서버를 `--enable-specialists`로 실행하고 Agent 시험 호출/활성화 확인.
+2. 같은 역할의 다른 프로필을 프로젝트 전용으로 활성화해 프로젝트 A/B에 각각 배정.
+3. 각 프로젝트에 근거 문서를 준비하고 같은 요청을 실행해 결과의 Agent ID/배정 버전 확인.
+4. A의 JSON을 내보내 B에서 비교·적용하고, B의 다음 업무부터 변경되는지 확인.
+5. OpenWebUI에서 프로젝트 모델을 선택해 동일한 배정으로 실행되는지 확인.
+6. 서버 재시작 후 배정/실행 이력 유지, 보관 프로젝트 읽기 전용, 화면 배치/다운로드 확인.
+
+자동 테스트는 합성 RAG/Chat과 실제 HTTP API를 사용합니다. 실제 C/M·llama.cpp의 답변
+품질 및 브라우저 시각 검증은 대상 PC에서 수행합니다. EquipmentRAG와 C/M의 API 변경은 없습니다.

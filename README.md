@@ -6,7 +6,7 @@ Domain Pack과 공통 프로젝트 공간으로 구성한다.
 
 0.9.0 개발본은 [프로젝트 자료 관리·폴더 자동 등록](docs/PROJECT_MATERIALS.md)을 제공합니다.
 
-0.10.0 개발본의 [프로젝트별 Agent 배정 1~3단계](docs/PROJECT_AGENTS.md)는 배정 편집·저장과 실제 실행·위임 연결을 제공합니다.
+0.10.0 개발본의 [프로젝트별 Agent 배정 1~4단계](docs/PROJECT_AGENTS.md)는 배정 편집·실행 연결과 JSON 가져오기·내보내기를 제공합니다.
 프로젝트별 구성을 선택하면 업무 시작 시 고정한 배정으로 실행합니다. 기존 방식도 선택할 수 있습니다.
 A/O 화면에서 파일 등록·교체·실패 재시도와 처리 상태 조회를 제공하며,
 EquipmentRAG의 managed ingestion API(0.3.0-rc.3)와 함께 배포해야 합니다.

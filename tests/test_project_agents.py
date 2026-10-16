@@ -94,6 +94,46 @@ class ProjectAgentTests(unittest.TestCase):
         self.assertEqual(restored.agent_assignments('legacy')['version'], 0)
         path.unlink()  # Windows requires every connection to be explicitly closed.
 
+    def test_portable_export_preview_and_versioned_import(self):
+        self.assertEqual(self.save().status_code, 200)
+        response = self.client.get(self.path + '/export')
+        self.assertIn('attachment;', response.headers['content-disposition'])
+        exported = response.json()
+        self.assertEqual(set(exported), {'format', 'format_version', 'configuration'})
+        self.assertNotIn('endpoint', json.dumps(exported))
+        target = '/v1/projects/beta/agent-assignments'
+        preview = self.client.post(target + '/import-preview', headers=self.headers,
+            json={'version':0, 'document':exported})
+        self.assertEqual(preview.status_code, 200, preview.text)
+        value = preview.json()
+        self.assertTrue(value['can_apply'])
+        self.assertTrue(value['changes'])
+        self.assertEqual(self.client.get(target).json()['version'], 0)  # Preview never writes.
+        self.assertEqual(self.client.put(target, headers=self.headers,
+            json={'version':value['version'], 'configuration':value['configuration']}).status_code, 200)
+        self.assertEqual(self.client.put(target, headers=self.headers,
+            json={'version':value['version'], 'configuration':value['configuration']}).status_code, 409)
+        self.assertFalse(self.client.post(target + '/import-preview', headers=self.headers,
+            json={'version':1, 'document':exported}).json()['can_apply'])
+
+    def test_import_validation_and_registry_change_after_preview(self):
+        document = dict(format='hermes-project-agents', format_version=1, configuration=self.config)
+        body = dict(version=0, document=document)
+        path = self.path + '/import-preview'
+        self.assertEqual(self.client.post(path, json=body).status_code, 403)
+        for change in ({'format_version':2}, {'format_version':True}, {'endpoint':'http://injected'}, {'format':'other'}):
+            self.assertEqual(self.client.post(path, headers=self.headers,
+                json={**body, 'document':{**document, **change}}).status_code, 422)
+        preview = self.client.post(path, headers=self.headers, json=body).json()
+        self.assertTrue(preview['can_apply'])
+        self.manager.set_enabled('document-agent', 1, False)
+        self.assertEqual(self.client.put(self.path, headers=self.headers,
+            json={'version':0, 'configuration':preview['configuration']}).status_code, 422)
+        invalid = self.client.post(path, headers=self.headers, json=body).json()
+        self.assertFalse(invalid['can_apply'])
+        self.assertTrue(invalid['validation_issues'])
+        self.assertEqual(self.client.get(self.path).json()['version'], 0)
+
 
 if __name__ == '__main__':
     unittest.main()

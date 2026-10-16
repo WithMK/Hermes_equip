@@ -25,6 +25,7 @@ const wait = async fn => {
       beforeParse(window) {
         window.fetch = (path, options) => fetch(new URL(path, base), options);
         window.crypto.randomUUID = require('node:crypto').randomUUID;
+        window.TextEncoder = TextEncoder;
         window.confirm = message => { dialogs.push(message); return false; };
         window.localStorage.setItem('ao-project', id);
         window.HTMLElement.prototype.scrollIntoView = () => {};
@@ -69,11 +70,28 @@ const wait = async fn => {
     submit(); await wait(() => $('assignment-status').textContent.includes('v3 저장 완료'));
     assert.equal((await request(path)).configuration.agents.length, 0);
     assert.ok((await request('/v1/agents')).some(a => a.agent_id === 'document-agent'));
+    const exported = await request(new URL($('assignment-export').href).pathname);
+    exported.configuration.mode = 'custom';
+    exported.configuration.default_agent_id = 'document-agent';
+    exported.configuration.agents = [{agent_id:'document-agent', assignment:'Imported', instructions:'imported guidance', enabled:true, allow_delegation:true}];
+    input($('assignment-import-text'), '{bad json'); $('assignment-preview').click();
+    await wait(() => $('assignment-import-message').textContent.includes('올바른 JSON'));
+    assert.equal($('assignment-apply-import').disabled, true);
+    input($('assignment-import-text'), JSON.stringify(exported)); $('assignment-preview').click();
+    await wait(() => !$('assignment-apply-import').disabled);
+    assert.match($('assignment-diff').textContent, /Imported/);
+    assert.equal((await request(path)).version, 3);
+    // Editing JSON invalidates the reviewed preview.
+    input($('assignment-import-text'), JSON.stringify(exported));
+    assert.equal($('assignment-apply-import').disabled, true);
+    $('assignment-preview').click(); await wait(() => !$('assignment-apply-import').disabled);
+    $('assignment-apply-import').click(); await wait(() => $('assignment-status').textContent.includes('v4 가져오기 완료'));
+    assert.equal((await request(path)).configuration.agents[0].instructions, 'imported guidance');
     let project = await request(`/v1/projects/${id}`);
     await request(`/v1/projects/${id}`, 'PUT', {version:project.version, name:project.name, status:'archived'});
     $('refresh').click(); await wait(() => $('assignment-status').textContent.includes('읽기 전용'));
     assert.equal($('assignment-fields').disabled, true);
     assert.deepEqual(errors, []);
-    console.log('PASS: assignment UI add/edit/save, scope isolation, dirty protection, conflict/reload, remove and archive');
+    console.log('PASS: assignment UI, execution, isolation, conflicts, portable JSON preview/apply, remove and archive');
   } finally { if(dom) dom.window.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
