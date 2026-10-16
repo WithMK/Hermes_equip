@@ -193,7 +193,8 @@ class TaskWorker:
 def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
                health_checks: dict | None = None, queue_capacity: int = 20,
                openai_api_key: str = "", chat_wait_seconds: float = 600,
-               agent_manager=None, managed_dispatcher=None, material_client=None):
+               agent_manager=None, managed_dispatcher=None, material_client=None,
+               material_watch_entries=None, material_watch_interval=10):
     store = engine.state_store
     workspace = store.get_workspace(workspace_id)
     if workspace['domain_id'] != engine.domain.domain_id:
@@ -206,9 +207,18 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
     @asynccontextmanager
     async def lifespan(app):
         worker.start()
+        watcher = None
         try:
+            if material_watch_entries:
+                from .material_watch import MaterialWatcher
+                watcher = MaterialWatcher(str(store.path) + '.material-watches.db', worker.projects,
+                                          material_client, material_watch_entries, interval=material_watch_interval)
+                app.state.material_watcher = watcher
+                watcher.start()
             yield
         finally:
+            if watcher is not None:
+                await asyncio.to_thread(watcher.close)
             await asyncio.to_thread(worker.close)
 
     app = FastAPI(title='Hermes A/O Control', lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)

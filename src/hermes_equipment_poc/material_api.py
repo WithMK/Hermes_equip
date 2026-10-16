@@ -26,6 +26,11 @@ class Retry(BaseModel):
     version: int = Field(ge=1)
 
 
+class WatchEnabled(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    enabled: bool
+
+
 def install_material_routes(app, worker, client):
     def perform(action):
         if client is None:
@@ -40,6 +45,8 @@ def install_material_routes(app, worker, client):
             # Never expose upstream URLs, paths, credentials or raw error bodies.
             cause = exc.__cause__
             status = getattr(cause, 'code', 502)
+            if status == 404:
+                raise HTTPException(404, '자료를 찾을 수 없습니다.') from exc
             if status == 409:
                 raise HTTPException(409, '자료가 변경되었거나 처리 중입니다. 새로고침 후 다시 시도하세요.') from exc
             if status in {413, 422}:
@@ -74,13 +81,39 @@ def install_material_routes(app, worker, client):
             return client.post(path(project), {**value.model_dump(), 'project': project['knowledge_project'], 'equipment': equipment})
         return perform(action)
 
-    @app.post('/v1/projects/{project_id}/materials/{document_id}/retry', status_code=202)
-    def retry(project_id: str, document_id: str, value: Retry):
+    @app.post('/v1/projects/{project_id}/materials/{document_id}/{operation}', status_code=202)
+    def document_action(project_id: str, document_id: str, operation: str, value: Retry):
+        if operation not in {'retry', 'exclude', 'restore', 'delete', 'reindex'}:
+            raise HTTPException(404, '지원하지 않는 자료 작업입니다.')
         if not re.fullmatch(r'[a-f0-9]{64}', document_id):
             raise HTTPException(404, '자료를 찾을 수 없습니다.')
         def action():
             project = worker.projects.get(project_id)
             if project['status'] != 'active' or not project.get('materials_namespace'):
-                raise ProjectConflict('활성 프로젝트의 등록 자료만 재시도할 수 있습니다.')
-            return client.post(path(project) + '/' + document_id + '/retry', value.model_dump())
+                raise ProjectConflict('활성 프로젝트의 등록 자료만 변경할 수 있습니다.')
+            return client.post(path(project) + '/' + document_id + '/' + operation, value.model_dump())
+        return perform(action)
+
+    @app.get('/v1/projects/{project_id}/material-watches')
+    def list_watches(project_id: str):
+        def action():
+            worker.projects.get(project_id)
+            watcher = getattr(app.state, 'material_watcher', None)
+            return {'watches': watcher.snapshot(project_id) if watcher else []}
+        return perform(action)
+
+    @app.post('/v1/projects/{project_id}/material-watches/{watch_id}/enabled')
+    def watch_enabled(project_id: str, watch_id: str, value: WatchEnabled):
+        def action():
+            project = worker.projects.get(project_id)
+            if project['status'] != 'active':
+                raise ProjectConflict('보관 프로젝트의 폴더 설정은 변경할 수 없습니다.')
+            watcher = getattr(app.state, 'material_watcher', None)
+            if watcher is None:
+                raise HTTPException(404, '등록된 감시 폴더가 없습니다.')
+            try:
+                watcher.set_enabled(project_id, watch_id, value.enabled)
+            except KeyError as exc:
+                raise HTTPException(404, '등록된 감시 폴더가 없습니다.') from exc
+            return {'enabled': value.enabled}
         return perform(action)

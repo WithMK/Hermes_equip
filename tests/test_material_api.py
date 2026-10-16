@@ -101,6 +101,16 @@ class MaterialApiTests(unittest.TestCase):
             self.assertFalse(disabled.get('/v1/workspace').json()['material_uploads_enabled'])
             self.assertEqual(disabled.get('/v1/projects/alpha/materials').status_code, 503)
 
+    def test_lifecycle_actions_are_versioned_scoped_and_protected(self):
+        self.client.post('/v1/projects/alpha/materials', headers=self.headers, json=self.upload)
+        for operation in ('exclude', 'restore', 'delete', 'reindex'):
+            path = '/v1/projects/alpha/materials/' + 'a'*64 + '/' + operation
+            self.assertEqual(self.client.post(path, json={'version':1}).status_code, 403)
+            self.assertEqual(self.client.post(path, headers=self.headers, json={'version':True}).status_code, 422)
+            self.assertEqual(self.client.post(path, headers=self.headers, json={'version':1}).status_code, 202)
+            self.assertTrue(self.materials.calls[-1][1].endswith('/' + operation))
+        self.assertEqual(self.client.get('/v1/projects/alpha/material-watches').json(), {'watches':[]})
+
 
 if __name__ == '__main__':
     unittest.main()
