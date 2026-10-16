@@ -73,6 +73,8 @@ class TaskWorker:
                 db.execute("CREATE TABLE IF NOT EXISTS web_jobs (id TEXT PRIMARY KEY, request TEXT NOT NULL, status TEXT NOT NULL, result TEXT, error TEXT, mode TEXT NOT NULL DEFAULT 'unknown', submitted_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f+00:00','now')))")
                 if 'project_id' not in {column['name'] for column in db.execute('PRAGMA table_info(web_jobs)')}:
                     db.execute("ALTER TABLE web_jobs ADD COLUMN project_id TEXT NOT NULL DEFAULT ''")
+                if 'agent_assignment' not in {column['name'] for column in db.execute('PRAGMA table_info(web_jobs)')}:
+                    db.execute('ALTER TABLE web_jobs ADD COLUMN agent_assignment TEXT')
                 db.execute('CREATE INDEX IF NOT EXISTS web_jobs_project ON web_jobs(project_id,status)')
                 rows = db.execute("SELECT id FROM web_jobs WHERE status IN ('queued','running')").fetchall()
                 for row in rows:
@@ -168,6 +170,7 @@ class TaskWorker:
         return dict(row) if row else None
 
     def _loop(self):
+        from .project_runtime import prepare_project_execution, ProjectExecutionError
         while not self.stop.is_set():
             self.wake.clear()
             with closing(self.db()) as db, db:
@@ -181,11 +184,18 @@ class TaskWorker:
                 data = json.loads(row['request'])
                 if data['request_kind']:
                     data['request_kind'] = RequestKind(data['request_kind'])
-                result = self.engine.run(OrchestratorRequest(**data))
+                local_engine, assignment = prepare_project_execution(self.engine, self.projects, data.get('project_id', ''))
+                with closing(self.db()) as db, db:
+                    db.execute('UPDATE web_jobs SET agent_assignment=?, mode=? WHERE id=?',
+                               (json.dumps(assignment), 'project' if assignment and assignment['runtime_applied'] else row['mode'], row['id']))
+                result = local_engine.run(OrchestratorRequest(**data))
                 status, output, error = 'completed', json.dumps(asdict(result)), None
             except Exception as exc:
                 # Upstream error bodies may contain credentials; never expose them in API.
                 status, output, error = 'failed', None, type(exc).__name__ + ': execution failed'
+                cause = exc if isinstance(exc, ProjectExecutionError) else exc.__cause__
+                if isinstance(cause, ProjectExecutionError):
+                    error = str(cause)
             with closing(self.db()) as db, db:
                 db.execute('UPDATE web_jobs SET status=?,result=?,error=? WHERE id=?', (status, output, error, row['id']))
 
@@ -227,7 +237,7 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
     from .project_api import install_project_routes
     install_project_routes(app, worker)
     from .project_agents import install_project_agent_routes
-    install_project_agent_routes(app, worker, agent_manager)
+    install_project_agent_routes(app, worker, agent_manager, execution_enabled=engine.specialists is not None)
     from .material_api import install_material_routes, MAX_BODY_BYTES
     install_material_routes(app, worker, material_client)
     if agent_manager is not None:
@@ -354,6 +364,7 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
         data['session_id'] = json.loads(job['request'])['session_id'] if job else ''
         data['project_id'] = job['project_id'] if job else ''
         data['project_memory'] = json.loads(job['request']).get('project_memory', '') if job else ''
+        data['agent_assignment'] = json.loads(job['agent_assignment']) if job and job.get('agent_assignment') else None
         return data
 
     @app.get('/v1/tasks')

@@ -19,11 +19,11 @@
 <h2 id="project-title"></h2><p id="project-summary"></p><p id="project-binding" class="muted"></p>
 <form id="assignment-form">
 <h3>프로젝트 Agent 배정</h3>
-<p>배정 설정을 미리 구성하고 저장할 수 있습니다. 현재 업무는 기존 Agent 실행 방식을 사용하며, 이 배정의 실제 실행 적용은 다음 단계에서 제공됩니다.</p>
+<p>프로젝트별 구성을 선택하면 기본 담당이 먼저 수행하고, 허용된 전문 Agent에 추가 위임합니다. 설정은 업무 시작 시 고정되며 진행 중인 업무에는 변경이 반영되지 않습니다.</p>
 <p id="assignment-status" role="status"></p><p id="assignment-error" role="alert"></p>
 <fieldset id="assignment-fields" disabled>
 <legend>배정 설정</legend>
-<div class="fields"><label>배정 방식<select id="assignment-mode"><option value="legacy">기존 방식</option><option value="custom">프로젝트별 구성 (실행 적용 대기)</option></select></label><label>기본 담당 Agent<select id="assignment-default"></select></label><label>최대 위임 횟수<input id="assignment-limit" type="number" min="0" max="8" value="4" required></label></div>
+<div class="fields"><label>배정 방식<select id="assignment-mode"><option value="legacy">기존 방식</option><option value="custom">프로젝트별 구성</option></select></label><label>기본 담당 Agent<select id="assignment-default"></select></label><label>최대 추가 위임 횟수<input id="assignment-limit" type="number" min="0" max="8" value="4" required></label></div>
 <label><input id="assignment-delegation" type="checkbox" checked> 전문 Agent 위임 허용</label>
 <div class="form-footer"><label>배정할 Agent<select id="assignment-candidate"></select></label><button id="assignment-add" type="button">배정 추가</button></div>
 <div id="assignment-rows"></div>
@@ -42,7 +42,7 @@
 </section>
 <form id="agent-editor" hidden>
 <h2 id="agent-editor-title">Agent 등록</h2>
-<p>역할별로 한 Agent만 활성화됩니다. 저장한 설정은 시험 호출 후 활성화해주세요. 수정하면 기존 활성 상태가 해제됩니다.</p>
+<p>기본 활성화는 기존 방식의 역할별 담당을 교체합니다. 프로젝트 전용 활성화는 기존 담당을 유지하며 다른 프로필을 추가 활성화합니다. 저장한 설정은 시험 호출 후 활성화해주세요. 수정하면 기존 활성 상태가 해제됩니다.</p>
 <div class="fields"><label>Agent ID<input id="agent-id" required maxlength="64" pattern="[a-z0-9][a-z0-9_-]{0,63}"></label><label>이름<input id="agent-name" required maxlength="120"></label><label>역할<select id="agent-role"></select></label></div>
 <label>추가 역할 지침<textarea id="agent-instructions" rows="5" maxlength="4000" placeholder="예: 근거와 가설을 구분하고 확인 순서를 표로 작성합니다."></textarea></label>
 <p class="muted">모델·연결 서버는 선택한 역할의 서버 설정을 사용합니다. 여기서 서버 프로세스나 도구 권한을 변경하지 않습니다.</p>

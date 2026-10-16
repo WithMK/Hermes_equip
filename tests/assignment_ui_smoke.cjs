@@ -24,6 +24,7 @@ const wait = async fn => {
     dom = await JSDOM.fromURL(base, {resources:'usable', runScripts:'dangerously', pretendToBeVisual:true, virtualConsole,
       beforeParse(window) {
         window.fetch = (path, options) => fetch(new URL(path, base), options);
+        window.crypto.randomUUID = require('node:crypto').randomUUID;
         window.confirm = message => { dialogs.push(message); return false; };
         window.localStorage.setItem('ao-project', id);
         window.HTMLElement.prototype.scrollIntoView = () => {};
@@ -47,7 +48,12 @@ const wait = async fn => {
     const path = `/v1/projects/${id}/agent-assignments`;
     let saved = await request(path);
     assert.equal(saved.configuration.default_agent_id, 'document-agent');
-    assert.equal(saved.runtime_applied, false);
+    assert.equal(saved.runtime_applied, true);
+    input($('objective'), '문서 검토'); input($('kind'), 'document_task');
+    $('task-form').dispatchEvent(new w.Event('submit', {bubbles:true,cancelable:true}));
+    await wait(() => $('status').textContent === 'completed');
+    assert.match($('runs').textContent, /시작 시 배정 v1/);
+    assert.match($('runs').textContent, /document-agent/);
     assert.match(saved.configuration.agents[0].instructions, /근거 확인/);
     assert.equal((await request(`/v1/projects/${beta}/agent-assignments`)).version, 0);
     // Another editor saves first. A stale save preserves local input and reports conflict.

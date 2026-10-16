@@ -47,6 +47,7 @@ async function detail() {
   text('diagnostic', [task.error, task.failure_reason, task.finish_reason === 'no_evidence' ? '검색 근거가 없어 전문 Agent를 호출하지 않았습니다.' : '', `호출 모드: ${task.delegation_mode}`, task.submission_status === 'interrupted' ? '서버 중단 기록 — 기존 결과를 확인한 후 새 작업을 제출하세요.' : ''].filter(Boolean).join(' / '));
   for (const key of ['runs', 'evidence']) $(key).replaceChildren();
   for (const run of runs) block($('runs'), 'run', `${run.agent_name} · ${run.status}\n${run.summary || run.error || ''}`);
+  if (task.agent_assignment) block($('runs'), 'muted', `시작 시 배정 v${task.agent_assignment.version} · ${task.agent_assignment.execution_mode === 'project' ? '프로젝트 배정' : '기존 방식'} · 기본 담당: ${task.agent_assignment.configuration.default_agent_id || '기존 설정'}`);
   for (const profile of task.agent_profiles || []) block($('runs'), 'muted', `${profile.role} → ${profile.agent_id}${profile.version ? ` · v${profile.version}` : ''}`);
   for (const source of task.evidence) block($('evidence'), 'source', `[${source.source_id}] ${source.source_type} · ${source.record_id}\n${source.summary}`);
   const nextArtifactKey = task.task_id + JSON.stringify(task.artifacts);
@@ -82,7 +83,7 @@ async function start() {
   $('session').value = localStorage.getItem('ao-session') || '';
   manageAgents = !!config.agent_management_enabled;
   $('agent-new').hidden = !manageAgents;
-  text('agent-mode', manageAgents ? '등록 → 시험 호출 → 활성화. 역할별 한 Agent를 사용합니다.' : '등록 정보는 읽기 전용입니다.');
+  text('agent-mode', manageAgents ? '시험 호출 후 기본 활성화 또는 프로젝트 전용 활성화를 선택합니다.' : '등록 정보는 읽기 전용입니다.');
   if (manageAgents) {
     for (const template of await api('/v1/agent-templates')) {
       const option = document.createElement('option'); option.value = template.role; option.textContent = template.role; $('agent-role').append(option);
@@ -221,7 +222,7 @@ function editAgent(agent = null) {
 async function loadAgents() {
   const agents = await api('/v1/agents'); $('agents').replaceChildren();
   for (const agent of agents) {
-    const row = block($('agents'), 'agent', `${agent.name || agent.agent_id} · ${agent.agent_id}\n${agent.role || ''} · ${agent.enabled ? '활성' : '비활성'}${agent.version ? ` · v${agent.version} · 시험: ${agent.test_status}` : ''}\n${agent.endpoint}\n${agent.policy}`);
+    const row = block($('agents'), 'agent', `${agent.name || agent.agent_id} · ${agent.agent_id}\n${agent.role || ''} · ${agent.enabled ? (agent.default_for_role === false ? '프로젝트 전용 활성' : '기본 활성') : '비활성'}${agent.version ? ` · v${agent.version} · 시험: ${agent.test_status}` : ''}\n${agent.endpoint}\n${agent.policy}`);
     const button = document.createElement('button'); button.type = 'button'; button.textContent = '연결 확인';
     button.addEventListener('click', async () => { button.disabled = true; try { const state = await api(`/v1/agents/${encodeURIComponent(agent.agent_id)}/health`); button.textContent = `${state.status} (추론 미검증)`; } catch (e) { showError(e); } finally { button.disabled = false; } }); row.append(button);
     if (manageAgents) {
@@ -230,6 +231,7 @@ async function loadAgents() {
       action('수정', () => editAgent(agent));
       action('시험 호출', async () => { const result = await api(path + '/test', {method: 'POST', body: JSON.stringify({version: agent.version})}); await loadAgents(); if (result.test_status !== 'passed') throw new Error('시험 호출에 실패했습니다. 연결 서버·모델·근거 인용 응답을 확인해주세요.'); });
       action(agent.enabled ? '비활성화' : '활성화', async () => { await api(path + '/enabled', {method: 'POST', body: JSON.stringify({version: agent.version, enabled: !agent.enabled})}); await loadAgents(); });
+      if (!agent.enabled) action('프로젝트 전용 활성화', async () => { await api(path + '/enabled', {method:'POST', body:JSON.stringify({version:agent.version, enabled:true, make_default:false})}); await loadAgents(); });
       action('이력', async () => { text('agent-history', JSON.stringify(await api(path + '/history'), null, 2)); $('agent-history-panel').hidden = false; });
       if (!agent.enabled) action('삭제', async () => { if (confirm(`${agent.name} 설정을 삭제할까요? 변경 이력은 보존됩니다.`)) { await api(path + `?version=${agent.version}`, {method: 'DELETE'}); await loadAgents(); } });
     }
@@ -416,7 +418,7 @@ async function loadAssignments(force = false) {
     const [state, profiles] = await Promise.all([api(`/v1/projects/${encodeURIComponent(scope)}/agent-assignments`), api('/v1/agents')]);
     if (scope !== currentProject || request !== assignmentLoad) return;
     assignmentState = state; assignmentProfiles = profiles; assignmentDirty = false;
-    text('assignment-status', `설정 v${state.version} · 실제 실행은 기존 방식${manageAgents ? '' : ' · Agent 관리 연결이 없어 읽기 전용'}${projects.find(p => p.project_id === scope)?.status === 'archived' ? ' · 보관 프로젝트: 읽기 전용' : ''}`);
+    text('assignment-status', `설정 v${state.version} · ${state.execution_mode === 'project' ? '프로젝트 배정으로 실행' : '기존 방식으로 실행'}${manageAgents ? '' : ' · Agent 관리 연결이 없어 읽기 전용'}${projects.find(p => p.project_id === scope)?.status === 'archived' ? ' · 보관 프로젝트: 읽기 전용' : ''}`);
     text('assignment-error', state.validation_issues.join('\n'));
     renderAssignments();
   } catch (error) {
@@ -454,7 +456,7 @@ $('assignment-form').addEventListener('submit', async event => {
     const saved = await api(`/v1/projects/${encodeURIComponent(scope)}/agent-assignments`, {method:'PUT', body:payload});
     if (scope !== currentProject) return;
     assignmentState = saved; assignmentDirty = false;
-    text('assignment-status', `설정 v${saved.version} 저장 완료 · 실제 실행은 기존 방식`);
+    text('assignment-status', `설정 v${saved.version} 저장 완료 · ${saved.execution_mode === 'project' ? '다음 업무 시작부터 프로젝트 배정 적용' : '기존 방식으로 실행'}`);
   } catch (error) {
     if (scope === currentProject) text('assignment-error', `${error.message}\n입력 내용은 유지했습니다. 충돌 시 저장된 설정을 다시 불러온 뒤 수정하세요.`);
   } finally {

@@ -27,6 +27,7 @@ class Version(BaseModel):
 
 class Toggle(Version):
     enabled: bool
+    make_default: bool = True
 
 
 def install_agent_routes(app, manager, dispatcher):

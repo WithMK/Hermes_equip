@@ -1,4 +1,4 @@
-"""Project Agent configuration API. Stage 1 stores drafts; execution is unchanged."""
+"""Project Agent configuration and current validation state."""
 from typing import Literal
 
 from fastapi import HTTPException
@@ -36,7 +36,7 @@ class SaveAssignments(BaseModel):
 def assignment_issues(configuration, profiles):
     issues, seen = [], set()
     by_id = {p['agent_id']: p for p in profiles}
-    active = set()
+    active, roles = set(), set()
     for item in configuration['agents']:
         identity = item['agent_id']
         if identity in seen:
@@ -52,6 +52,9 @@ def assignment_issues(configuration, profiles):
                 issues.append(f'Agent is disabled: {identity}')
             else:
                 active.add(identity)
+                if profile['role'] in roles:
+                    issues.append('Only one enabled assignment per specialist role is supported')
+                roles.add(profile['role'])
     default = configuration['default_agent_id']
     if default and default not in active:
         issues.append('Default Agent must be an enabled assignment with an active profile')
@@ -62,7 +65,7 @@ def assignment_issues(configuration, profiles):
     return issues
 
 
-def install_project_agent_routes(app, worker, manager):
+def install_project_agent_routes(app, worker, manager, *, execution_enabled=True):
     def perform(action):
         try:
             return action()
@@ -73,8 +76,14 @@ def install_project_agent_routes(app, worker, manager):
 
     def present(data):
         profiles = manager.list() if manager else []
-        return {**data, 'runtime_applied': False, 'execution_mode': 'legacy',
-                'validation_issues': assignment_issues(data['configuration'], profiles)}
+        issues = assignment_issues(data['configuration'], profiles)
+        custom = data['configuration']['mode'] == 'custom'
+        if custom and manager is None:
+            issues.append('Agent management is not configured')
+        if custom and not execution_enabled:
+            issues.append('전문 Agent 실행이 꺼져 있습니다. 서버의 --enable-specialists 설정을 확인하세요.')
+        return {**data, 'runtime_applied': custom and not issues, 'execution_mode': 'project' if custom else 'legacy',
+                'validation_issues': issues}
 
     @app.get('/v1/projects/{project_id}/agent-assignments')
     def get_assignments(project_id: str):
@@ -89,6 +98,8 @@ def install_project_agent_routes(app, worker, manager):
             # Registry edits/tests/execution and this validation/save cannot interleave.
             with manager.exclusive():
                 configuration = value.configuration.model_dump()
+                if configuration['mode'] == 'custom' and not execution_enabled:
+                    raise HTTPException(409, '프로젝트 배정 실행에는 서버의 --enable-specialists 설정이 필요합니다.')
                 issues = assignment_issues(configuration, manager.list())
                 if issues:
                     raise HTTPException(422, {'message': 'Invalid Agent assignments', 'issues': issues})
