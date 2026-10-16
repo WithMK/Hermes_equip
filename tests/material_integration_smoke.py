@@ -126,7 +126,41 @@ def main():
         raw = JsonApiClient(rag_url)
         assert raw.post('/v1/retrieve', {'query':'E-024', 'source_type':'document', 'filters':{'document':{'project':binding}}, 'include_content':True})['result_count'] > 0
         assert raw.post('/v1/retrieve', {'query':'E-024', 'source_type':'document', 'filters':{'document':{'project':'other-project'}}})['result_count'] == 0
-        print('PASS: A/O upload → authenticated RAG HTTP → Chroma + SQLite FTS5 → project-scoped task evidence → chat')
+        query = {'query':'E-024', 'source_type':'document', 'filters':{'document':{'project':binding}}}
+        def wait_document(identity, expected):
+            for _ in range(300):
+                value = next(d for d in api.get(path)['documents'] if d['id'] == identity)
+                if value['status'] in {expected, 'failed'}:
+                    break
+                time.sleep(.02)
+            assert value['status'] == expected, value
+            return value
+        for action, status, count in [('exclude','excluded',0), ('restore','ready',1), ('reindex','ready',1), ('delete','deleted',0)]:
+            api.post(path + '/' + document['id'] + '/' + action, {'version': document['version']})
+            document = wait_document(document['id'], status)
+            assert bool(raw.post('/v1/retrieve', query)['result_count']) == bool(count), action
+        # Deterministic polls exercise the watcher against the real authenticated RAG API.
+        from hermes_equipment_poc.material_watch import MaterialWatcher
+        folder = root / 'watched'; folder.mkdir()
+        source = folder / 'guide.md'; source.write_text('E-024 watched original', encoding='utf-8')
+        watcher = MaterialWatcher(root / 'watch.db', app.state.worker.projects,
+            JsonApiClient(rag_url, api_key=key, retry_count=0),
+            [dict(watch_id='smoke', project_id='alpha', path=str(folder), recursive=True)])
+        watcher.scan_once(); watcher.scan_once()
+        watched = next(d for d in api.get(path)['documents'] if d.get('source_key'))
+        watched = wait_document(watched['id'], 'ready')
+        assert raw.post('/v1/retrieve', query)['result_count'] > 0
+        source.write_text('E-024 watched replacement longer', encoding='utf-8')
+        watcher.scan_once(); watcher.scan_once()
+        watched = wait_document(watched['id'], 'ready')
+        assert watched['version'] == 2
+        api.post(path + '/' + watched['id'] + '/delete', {'version':2})
+        wait_document(watched['id'], 'deleted')
+        watcher.scan_once(); watcher.scan_once()
+        assert source.exists()
+        assert raw.post('/v1/retrieve', query)['result_count'] == 0
+        assert len(api.get(path)['documents']) == 2
+        print('PASS: real HTTP/Chroma/FTS upload, scoped evidence, exclude/restore/reindex/delete, watched replacement and no resurrection')
 
 
 if __name__ == '__main__':

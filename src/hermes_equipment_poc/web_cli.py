@@ -20,9 +20,20 @@ def main(argv=None):
     parser.description = 'Local A/O web interface (one process, http://127.0.0.1:8650)'
     parser.add_argument('--port', type=int, default=8650)
     parser.add_argument('--enable-document-uploads', action='store_true')
+    parser.add_argument('--material-watch-config', type=Path, help='Operator-owned JSON list of project folders')
+    parser.add_argument('--material-watch-interval', type=int, default=10)
     args = parser.parse_args(argv)
     if args.enable_document_uploads and len(os.environ.get('EQUIPMENT_RAG_INGESTION_KEY', '')) < 24:
         parser.error('EQUIPMENT_RAG_INGESTION_KEY must contain at least 24 characters')
+    if args.material_watch_config and not args.enable_document_uploads:
+        parser.error('--material-watch-config requires --enable-document-uploads')
+    if not 1 <= args.material_watch_interval <= 3600:
+        parser.error('--material-watch-interval must be 1..3600 seconds')
+    from .material_watch import load_watch_config
+    try:
+        watch_entries = load_watch_config(args.material_watch_config)
+    except (ValueError, OSError) as exc:
+        parser.error(str(exc))
     if not 1 <= args.port <= 65535:
         parser.error('invalid port')
     if not args.workspace_root:
@@ -77,7 +88,8 @@ def main(argv=None):
     uvicorn.run(create_app(engine, args.workspace_id, agents=entries, health_checks=checks,
                           openai_api_key=os.environ.get('AO_API_KEY', ''),
                           agent_manager=manager, managed_dispatcher=managed,
-                          material_client=client(args.equipment_rag_base_url, 'EQUIPMENT_RAG_INGESTION_KEY') if args.enable_document_uploads else None),
+                          material_client=client(args.equipment_rag_base_url, 'EQUIPMENT_RAG_INGESTION_KEY') if args.enable_document_uploads else None,
+                          material_watch_entries=watch_entries, material_watch_interval=args.material_watch_interval),
                 host='127.0.0.1', port=args.port, workers=1, proxy_headers=False)
 
 

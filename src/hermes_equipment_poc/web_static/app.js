@@ -125,7 +125,7 @@ async function showProject() {
   $('material-form').hidden = !materialUploads;
   $('material-upload').disabled = project.status === 'archived' || materialBusy;
   $('material-refresh').hidden = !materialUploads;
-  text('material-mode', materialUploads ? '준비 완료 자료는 이 프로젝트의 RAG 검색에 사용됩니다. 폴더 감시는 포함하지 않습니다.' : '자료 등록 서버 연결이 설정되지 않았습니다.');
+  text('material-mode', materialUploads ? '준비 완료 자료는 이 프로젝트의 RAG 검색에 사용됩니다. 검색 제외 자료는 원본을 보관하며 복원할 수 있습니다.' : '자료 등록 서버 연결이 설정되지 않았습니다.');
   text('material-message', '');
   await loadMaterials();
   await loadNotes();
@@ -256,25 +256,39 @@ setInterval(async () => { if (polling || document.hidden) return; polling = true
 
 async function loadMaterials() {
   const scope = currentProject;
-  if (!scope || !materialUploads) { $('materials').replaceChildren(); materialRows = []; return; }
+  if (!scope || !materialUploads) { $('materials').replaceChildren(); $('material-watches').replaceChildren(); materialRows = []; return; }
   try {
     const result = await api(`/v1/projects/${encodeURIComponent(scope)}/materials`);
     if (scope !== currentProject) return;
     materialRows = result.documents; $('materials').replaceChildren();
-    const labels = {queued:'대기', indexing:'처리 중', ready:'준비 완료', failed:'실패'};
+    const labels = {queued:'대기', indexing:'처리 중', ready:'준비 완료', failed:'실패', excluded:'검색 제외', deleted:'삭제 완료'};
     for (const item of materialRows) {
-      const row = block($('materials'), 'source', `${item.filename} · ${labels[item.status] || item.status} · v${item.version} · ${item.chunks}개 조각\n${item.error || ''}`);
-      if (item.status === 'failed') {
-        const button = document.createElement('button'); button.type = 'button'; button.textContent = '재시도';
-        button.disabled = projects.find(p => p.project_id === scope)?.status !== 'active';
+      const goal = {active:'검색 사용', excluded:'검색 제외', deleted:'삭제'}[item.desired_state] || '';
+      const row = block($('materials'), 'source', `${item.filename} · ${labels[item.status] || item.status} · v${item.version} · ${item.chunks}개 조각\n${goal}${item.source_key ? ' · 폴더 자료' : ''}\n${item.error || ''}`);
+      const busy = ['queued', 'indexing', 'deleted'].includes(item.status);
+      const action = (label, operation, confirmText = '') => {
+        const button = document.createElement('button'); button.type = 'button'; button.textContent = label;
+        button.disabled = busy || projects.find(p => p.project_id === scope)?.status !== 'active';
         button.addEventListener('click', async () => {
+          if (confirmText && !confirm(confirmText)) return;
           button.disabled = true;
-          try { await api(`/v1/projects/${encodeURIComponent(scope)}/materials/${encodeURIComponent(item.id)}/retry`, {method:'POST', body:JSON.stringify({version:item.version})}); await loadMaterials(); }
+          try { await api(`/v1/projects/${encodeURIComponent(scope)}/materials/${encodeURIComponent(item.id)}/${operation}`, {method:'POST', body:JSON.stringify({version:item.version})}); await loadMaterials(); }
           catch(e) { text('material-message', e.message); }
+          finally { button.disabled = false; }
         }); row.append(button);
+      };
+      if (item.status === 'failed') action('실패 작업 재시도', 'retry');
+      if (item.status !== 'deleted' && item.desired_state !== 'deleted') {
+        if (item.desired_state === 'excluded') action('검색 복원', 'restore');
+        else {
+          action('재인덱싱', 'reindex');
+          action('검색 제외', 'exclude');
+        }
+        action('삭제', 'delete', `${item.filename}의 등록 원본과 검색 자료를 삭제할까요?\n감시 폴더의 원본 파일은 유지됩니다. 이 삭제는 되돌릴 수 없습니다.`);
       }
     }
     if (!materialRows.length) block($('materials'), 'muted', '등록한 자료가 없습니다.');
+    await loadWatches(scope);
   } catch(e) { if (scope === currentProject) text('material-message', e.message); }
 }
 $('material-refresh').addEventListener('click', loadMaterials);
@@ -283,7 +297,7 @@ $('material-form').addEventListener('submit', async event => {
   if (materialBusy || !currentProject) return;
   const scope = currentProject, file = $('material-file').files[0];
   if (!file || !file.size || file.size > 10 * 1024 * 1024) { text('material-message', '1 byte ~ 10 MiB 파일을 선택하세요.'); return; }
-  const old = materialRows.find(item => item.filename.toLowerCase() === file.name.toLowerCase());
+  const old = materialRows.find(item => !item.source_key && item.filename.toLowerCase() === file.name.toLowerCase());
   if (old && !confirm(`${file.name} 자료를 확인·교체할까요? 같은 내용이면 기존 자료를 유지합니다.`)) return;
   materialBusy = true; $('material-upload').disabled = true;
   try {
@@ -294,3 +308,25 @@ $('material-form').addEventListener('submit', async event => {
     if (scope === currentProject) { await loadProjects(); text('material-message', e.message); }
   } finally { materialBusy = false; $('material-upload').disabled = projects.find(p => p.project_id === currentProject)?.status !== 'active'; }
 });
+
+async function loadWatches(scope) {
+  const result = await api(`/v1/projects/${encodeURIComponent(scope)}/material-watches`);
+  if (scope !== currentProject) return;
+  $('material-watches').replaceChildren();
+  const labels = {waiting:'대기', paused:'일시 정지', archived:'프로젝트 보관', watching:'감시 중', error:'확인 필요', settling:'파일 저장 완료 대기', pending:'인덱싱 대기/진행', synced:'반영 완료', failed:'인덱싱 실패', excluded:'검색 제외 유지', deleted:'삭제 유지', missing:'원본 파일 없음'};
+  for (const watch of result.watches) {
+    const row = block($('material-watches'), 'source', `${watch.watch_id} · ${labels[watch.status] || watch.status}\n${watch.path}\n${watch.error || ''}`);
+    const button = document.createElement('button'); button.type = 'button'; button.textContent = watch.enabled ? '일시 정지' : '감시 재개';
+    button.disabled = projects.find(p => p.project_id === scope)?.status !== 'active';
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      try { await api(`/v1/projects/${encodeURIComponent(scope)}/material-watches/${encodeURIComponent(watch.watch_id)}/enabled`, {method:'POST', body:JSON.stringify({enabled:!watch.enabled})}); await loadWatches(scope); }
+      catch(e) { text('material-message', e.message); }
+    }); row.append(button);
+    const details = document.createElement('details'), summary = document.createElement('summary');
+    summary.textContent = `파일 상태 (${watch.files.length})`; details.append(summary);
+    for (const file of watch.files) block(details, 'muted', `${file.relative_path} · ${labels[file.status] || file.status}${file.error ? '\n' + file.error : ''}`);
+    row.append(details);
+  }
+  if (!result.watches.length) block($('material-watches'), 'muted', '지정한 폴더가 없습니다. 운영자가 서버의 폴더 감시 설정을 추가하면 표시됩니다.');
+}
