@@ -226,6 +226,8 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
     # Routes resolve the catalog after lifespan initializes it under the worker lock.
     from .project_api import install_project_routes
     install_project_routes(app, worker)
+    from .project_agents import install_project_agent_routes
+    install_project_agent_routes(app, worker, agent_manager)
     from .material_api import install_material_routes, MAX_BODY_BYTES
     install_material_routes(app, worker, material_client)
     if agent_manager is not None:

@@ -5,6 +5,9 @@ Hermes Agent를 Runtime으로 사용해 EquipmentRAG, ContextManager와 제한�
 Domain Pack과 공통 프로젝트 공간으로 구성한다.
 
 0.9.0 개발본은 [프로젝트 자료 관리·폴더 자동 등록](docs/PROJECT_MATERIALS.md)을 제공합니다.
+
+[프로젝트별 Agent 배정 1단계](docs/PROJECT_AGENTS.md)는 설정 저장·검증 API를 제공합니다.
+배정 UI와 실행 적용은 후속 단계이며 현재 업무는 기존 실행 방식을 유지합니다.
 A/O 화면에서 파일 등록·교체·실패 재시도와 처리 상태 조회를 제공하며,
 EquipmentRAG의 managed ingestion API(0.3.0-rc.3)와 함께 배포해야 합니다.
 
