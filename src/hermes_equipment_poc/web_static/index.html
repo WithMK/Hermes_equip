@@ -18,6 +18,8 @@
 <section id="project-panel" hidden>
 <h2 id="project-title"></h2><p id="project-summary"></p><p id="project-binding" class="muted"></p>
 <h3>프로젝트 자료</h3><p id="material-mode" class="muted"></p>
+<div id="material-summary" role="status" aria-live="polite"></div>
+<p class="muted">집계 범위: 이 프로젝트에 등록한 문서와 설정된 감시 폴더의 마지막 점검 결과. 소스코드·CLI 색인·미지정 폴더는 포함하지 않습니다.</p>
 <form id="material-form" hidden><label>자료 파일<input id="material-file" type="file" accept=".md,.txt,.pdf,.docx,.pptx,.xlsx" required></label><p class="muted">파일당 최대 10 MiB. 같은 이름의 변경 파일은 확인 후 교체합니다. 등록하면 자동으로 검색 자료를 준비합니다.</p><button id="material-upload" type="submit">등록 · 자동 인덱싱</button></form>
 <button id="material-refresh" type="button">자료 상태 새로고침</button><p id="material-message" role="status"></p><div id="materials"></div>
 <h3>자동 등록 폴더</h3><p class="muted">서버 실행 설정에 지정한 폴더의 새 파일과 변경 파일을 반영합니다. 원본이 없어져도 등록 자료는 유지합니다.</p><div id="material-watches"></div>
