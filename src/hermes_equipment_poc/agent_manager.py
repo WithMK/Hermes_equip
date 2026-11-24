@@ -89,7 +89,7 @@ class AgentManager:
 
     def _public(self, data):
         template = self.templates.get(data['role'])
-        return {**data, 'endpoint': template['endpoint'] if template else '',
+        return {**data, 'default_for_role': data.get('default_for_role', data['enabled']), 'endpoint': template['endpoint'] if template else '',
                 'available': template is not None,
                 'policy': '근거 분석·텍스트 결과만 허용. 외부 Hermes 도구 권한은 서버 프로필에서 관리.',
                 'model_route': 'Hermes gateway → ContextManager → llama.cpp'}
@@ -141,18 +141,19 @@ class AgentManager:
                         version=version + 1, tested_version=None, test_status='not_tested', binding=self.templates[role]['endpoint'])
             return self._save(db, data, 'update')
 
-    def set_enabled(self, agent_id, version, enabled):
+    def set_enabled(self, agent_id, version, enabled, make_default=True):
         with self.exclusive(), closing(self.connect()) as db, db:
             data = self._get(db, agent_id, version)
             if enabled and (data['role'] not in self.templates or data['tested_version'] != version):
                 raise AgentConflict('현재 설정으로 시험 호출을 통과한 뒤 활성화해주세요.')
-            if enabled:
+            if enabled and make_default:
                 for row in db.execute('SELECT data FROM agents WHERE deleted=0').fetchall():
                     peer = json.loads(row[0])
-                    if peer['agent_id'] != agent_id and peer['role'] == data['role'] and peer['enabled']:
+                    if peer['agent_id'] != agent_id and peer['role'] == data['role'] and peer['enabled'] and peer.get('default_for_role', True):
                         self._toggle(peer, False)
                         self._save(db, peer, 'replaced')
             self._toggle(data, enabled)
+            data['default_for_role'] = enabled and make_default
             return self._save(db, data, 'enable' if enabled else 'disable')
 
     @staticmethod
@@ -201,7 +202,7 @@ class ManagedDispatcher:
         return self.manager.execution_scope()
 
     def configuration_snapshot(self):
-        return [item for item in self.manager.list() if item['enabled'] and item['available']]
+        return [item for item in self.manager.list() if item['enabled'] and item['available'] and item['default_for_role']]
 
     def _dispatch(self, profile, context, **kwargs):
         role = SpecialistAgent(profile['role'])

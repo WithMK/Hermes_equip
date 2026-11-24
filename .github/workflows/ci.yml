@@ -25,3 +25,12 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Compile Python sources
         run: python -m compileall -q src tests
+      - uses: actions/setup-node@v4
+        if: runner.os == 'Linux'
+        with:
+          node-version: "22"
+      - name: Test project Agent assignment UI against HTTP API
+        if: runner.os == 'Linux'
+        run: |
+          npm install --prefix "$RUNNER_TEMP/ao-ui" jsdom@26.1.0
+          NODE_PATH="$RUNNER_TEMP/ao-ui/node_modules" python tests/run_assignment_ui_smoke.py

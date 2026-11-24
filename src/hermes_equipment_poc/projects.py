@@ -69,7 +69,7 @@ class ProjectStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with closing(self.connect()) as db, db:
             db.execute('BEGIN IMMEDIATE')
-            if db.execute('PRAGMA user_version').fetchone()[0] not in (0, 1):
+            if db.execute('PRAGMA user_version').fetchone()[0] not in (0, 1, 2):
                 raise ValueError('Unsupported project schema')
             db.execute('CREATE TABLE IF NOT EXISTS config (workspace_id TEXT, domain_id TEXT)')
             config = db.execute('SELECT * FROM config').fetchone()
@@ -81,7 +81,33 @@ class ProjectStore:
             db.execute('CREATE TABLE IF NOT EXISTS notes (note_id TEXT PRIMARY KEY, project_id TEXT NOT NULL, data TEXT NOT NULL)')
             db.execute('CREATE INDEX IF NOT EXISTS notes_project ON notes(project_id)')
             db.execute('CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, project_id TEXT NOT NULL, action TEXT NOT NULL, data TEXT NOT NULL, created_at TEXT NOT NULL)')
-            db.execute('PRAGMA user_version=1')
+            db.execute('CREATE TABLE IF NOT EXISTS agent_assignments (project_id TEXT PRIMARY KEY, data TEXT NOT NULL)')
+            db.execute('PRAGMA user_version=2')
+
+    def agent_assignments(self, project_id):
+        with closing(self.connect()) as db:
+            self._get(db, project_id)
+            row = db.execute('SELECT data FROM agent_assignments WHERE project_id=?', (project_id,)).fetchone()
+        return json.loads(row[0]) if row else dict(project_id=project_id, version=0, configuration={
+            'schema_version': 1, 'mode': 'legacy', 'default_agent_id': '', 'agents': [],
+            'delegation_enabled': True, 'max_delegations': 4}, updated_at='')
+
+    def save_agent_assignments(self, project_id, version, configuration):
+        # Validation against the registry is performed by the assignment service.
+        with closing(self.connect()) as db, db:
+            db.execute('BEGIN IMMEDIATE')
+            project = self._get(db, project_id)
+            if project['status'] != 'active':
+                raise ProjectConflict('Archived project is read-only')
+            row = db.execute('SELECT data FROM agent_assignments WHERE project_id=?', (project_id,)).fetchone()
+            current = json.loads(row[0])['version'] if row else 0
+            if type(version) is not int or version != current:
+                raise ProjectConflict('Agent assignments changed; refresh before editing')
+            data = dict(project_id=project_id, version=current + 1, configuration=configuration, updated_at=_now())
+            db.execute('INSERT INTO agent_assignments VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET data=excluded.data',
+                       (project_id, json.dumps(data, ensure_ascii=False)))
+            self._event(db, project_id, 'agent_assignments_update', data)
+        return data
 
     def connect(self):
         db = sqlite3.connect(self.path, timeout=5)

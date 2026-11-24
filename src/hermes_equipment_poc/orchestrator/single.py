@@ -260,6 +260,8 @@ class SingleOrchestrator:
             kind = self.classifier.classify(request)
             self.domain.validate(kind, request.knowledge_scopes)
             plan = self._retrieval_plan(request, kind)
+            if not plan.required and getattr(self.specialists, 'requires_evidence', False):
+                plan = replace(plan, required=True, source_type='document' if self.domain.domain_id == 'document' else 'all')
             if not plan.required and (request.knowledge_project or request.repository):
                 source_type = 'all' if request.knowledge_project and request.repository else ('document' if request.knowledge_project else 'code')
                 plan = replace(plan, required=True, source_type=source_type)
