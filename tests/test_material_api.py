@@ -100,6 +100,18 @@ class MaterialApiTests(unittest.TestCase):
         with TestClient(create_app(self.engine, 'W'), base_url='http://localhost') as disabled:
             self.assertFalse(disabled.get('/v1/workspace').json()['material_uploads_enabled'])
             self.assertEqual(disabled.get('/v1/projects/alpha/materials').status_code, 503)
+            self.assertEqual(disabled.get('/v1/projects/alpha/materials/summary').status_code, 503)
+
+    def test_summary_is_project_scoped_and_empty_does_not_mean_scan_complete(self):
+        path = '/v1/projects/alpha/materials/summary'
+        summary = self.client.get(path).json()
+        self.assertEqual(summary['registered'], 0)
+        self.assertFalse(summary['coverage_complete'])
+        self.assertEqual(self.client.get('/v1/projects/missing/materials/summary').status_code, 404)
+        self.client.post('/v1/projects/alpha/materials', headers=self.headers, json=self.upload)
+        self.client.get(path)
+        project = self.client.get('/v1/projects/alpha').json()
+        self.assertIn(project['materials_namespace'], self.materials.calls[-1][1])
 
     def test_lifecycle_actions_are_versioned_scoped_and_protected(self):
         self.client.post('/v1/projects/alpha/materials', headers=self.headers, json=self.upload)

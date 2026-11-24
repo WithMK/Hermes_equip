@@ -188,6 +188,7 @@ class MaterialWatcher:
             source_key = f"watch:{identity}:" + hashlib.sha256(relative.encode()).hexdigest()
             data = dict(relative_path=relative, source_key=source_key, status='waiting', error='', checked_at=_now())
             existing = remote.get(source_key)
+            data['change_kind'] = 'unknown' if existing else 'new'
             if existing:
                 data.update(document_id=existing['id'], document_status=existing['status'])
             try:
@@ -216,6 +217,7 @@ class MaterialWatcher:
                         raise ValueError('파일이 변경 중입니다.')
                     digest = hashlib.sha256(content).hexdigest()
                     data['sha256'] = digest
+                    data['change_kind'] = 'unchanged' if existing and existing['sha256'] == digest else ('changed' if existing else 'new')
                     if existing and existing['sha256'] == digest:
                         data['status'] = 'failed' if existing['status'] == 'failed' else 'synced'
                         data['error'] = existing.get('error', '')

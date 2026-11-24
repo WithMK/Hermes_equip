@@ -65,6 +65,16 @@ def install_material_routes(app, worker, client):
             return client.get(path(project))
         return perform(action)
 
+    @app.get('/v1/projects/{project_id}/materials/summary')
+    def summary(project_id: str):
+        def action():
+            from .material_status import material_status
+            project = worker.projects.get(project_id)
+            documents = client.get(path(project))['documents'] if project.get('materials_namespace') else []
+            watcher = getattr(app.state, 'material_watcher', None)
+            return material_status(documents, watcher.snapshot(project_id) if watcher else [])
+        return perform(action)
+
     @app.post('/v1/projects/{project_id}/materials', status_code=202)
     def upload(project_id: str, value: Upload):
         if re.search(r'[\\/:*?"<>|\x00-\x1f]', value.filename) or PurePath(value.filename).suffix.lower() not in {'.md', '.txt', '.pdf', '.docx', '.pptx', '.xlsx'}:
