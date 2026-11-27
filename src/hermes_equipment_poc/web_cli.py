@@ -89,7 +89,8 @@ def main(argv=None):
                           openai_api_key=os.environ.get('AO_API_KEY', ''),
                           agent_manager=manager, managed_dispatcher=managed,
                           material_client=client(args.equipment_rag_base_url, 'EQUIPMENT_RAG_INGESTION_KEY') if args.enable_document_uploads else None,
-                          material_watch_entries=watch_entries, material_watch_interval=args.material_watch_interval),
+                          material_watch_entries=watch_entries, material_watch_interval=args.material_watch_interval,
+                          retrieval_mode=args.retrieval_mode),
                 host='127.0.0.1', port=args.port, workers=1, proxy_headers=False)
 
 

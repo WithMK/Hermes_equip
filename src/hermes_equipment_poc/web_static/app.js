@@ -45,7 +45,7 @@ async function detail() {
   text('task-memory', task.project_memory || '프로젝트 Memory를 사용하지 않았습니다.');
   $('detail').hidden = false; text('status', task.status); text('task-id', task.task_id);
   text('request', task.objective); text('answer', task.answer || (terminal.has(task.status) ? '저장된 답변 없음 — 오류 또는 산출물을 확인하세요.' : '작업을 수행하고 있습니다…'));
-  text('diagnostic', [task.error, task.failure_reason, task.finish_reason === 'no_evidence' ? '검색 근거가 없어 전문 Agent를 호출하지 않았습니다.' : '', `호출 모드: ${task.delegation_mode}`, task.submission_status === 'interrupted' ? '서버 중단 기록 — 기존 결과를 확인한 후 새 작업을 제출하세요.' : ''].filter(Boolean).join(' / '));
+  text('diagnostic', [task.error, task.failure_reason, task.finish_reason === 'no_evidence' ? '검색 근거가 없어 전문 Agent를 호출하지 않았습니다.' : '', `호출 모드: ${task.delegation_mode}`, `RAG 정책: ${task.retrieval_mode || '기록 없음'}`, task.submission_status === 'interrupted' ? '서버 중단 기록 — 기존 결과를 확인한 후 새 작업을 제출하세요.' : ''].filter(Boolean).join(' / '));
   for (const key of ['runs', 'evidence']) $(key).replaceChildren();
   for (const run of runs) block($('runs'), 'run', `${run.agent_name} · ${run.status}\n${run.summary || run.error || ''}`);
   if (task.agent_assignment) block($('runs'), 'muted', `시작 시 배정 v${task.agent_assignment.version} · ${task.agent_assignment.execution_mode === 'project' ? '프로젝트 배정' : '기존 방식'} · 기본 담당: ${task.agent_assignment.configuration.default_agent_id || '기존 설정'}`);
@@ -72,7 +72,7 @@ async function detail() {
 async function refresh() { await listTasks(); await detail(); text('connection', 'A/O 연결됨'); }
 async function start() {
   const config = await api('/v1/workspace'); text('workspace-name', config.name);
-  workspaceName = config.name;
+  workspaceName = config.name; $('retrieval-mode').value = config.default_retrieval_mode || 'required';
   materialUploads = !!config.material_uploads_enabled;
   text('subject-label', `${config.subject_label || 'Equipment'} ID (선택)`);
   $('equipment').placeholder = config.domain_id === 'document' ? '예: 구매절차' : '예: E-024';
@@ -255,7 +255,7 @@ $('task-form').addEventListener('submit', async event => {
   try {
     if (!$('session').value.trim()) $('session').value = `ui-${crypto.randomUUID()}`;
     localStorage.setItem('ao-session', $('session').value);
-    const result = await api('/v1/tasks', { method: 'POST', body: JSON.stringify({objective: $('objective').value, session_id: $('session').value, subject_id: $('equipment').value.trim() || null, request_kind: $('kind').value || null, create_artifact: $('artifact').checked, project_id: currentProject, use_memory: $('use-memory').checked, source_task_id: $('task-source').value.trim()}) });
+    const result = await api('/v1/tasks', { method: 'POST', body: JSON.stringify({objective: $('objective').value, session_id: $('session').value, subject_id: $('equipment').value.trim() || null, request_kind: $('kind').value || null, retrieval_mode: $('retrieval-mode').value, create_artifact: $('artifact').checked, project_id: currentProject, use_memory: $('use-memory').checked, source_task_id: $('task-source').value.trim()}) });
     selected = result.task_id; localStorage.setItem('ao-task', selected); await refresh();
   } catch (e) { showError(e); } finally { $('submit').disabled = projects.find(p => p.project_id === currentProject)?.status === 'archived'; }
 });

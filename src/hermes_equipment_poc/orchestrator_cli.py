@@ -45,6 +45,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--domain", choices=["equipment", "document"], default="equipment")
     parser.add_argument("--subject-id")
     parser.add_argument("--request-kind", choices=[item.value for item in RequestKind])
+    parser.add_argument("--retrieval-mode", choices=['required', 'auto'], default='required', help='Search RAG by default; auto retains heuristic routing')
     parser.add_argument("--knowledge-scope", action="append", default=[])
     parser.add_argument("--constraint", action="append", default=[])
     parser.add_argument("--decision", action="append", default=[])
@@ -197,6 +198,7 @@ def main(argv: list[str] | None = None) -> int:
                 constraints=tuple(args.constraint),
                 decisions=tuple(args.decision),
                 knowledge_scopes=tuple(args.knowledge_scope),
+                retrieval_mode=args.retrieval_mode,
                 top_k=args.top_k,
                 decision_task_ids=tuple(args.decision_task_id),
                 create_artifact=args.create_artifact,

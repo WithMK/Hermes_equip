@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager, closing
 from dataclasses import asdict
 from pathlib import Path
 from uuid import uuid4
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -29,6 +30,7 @@ class TaskInput(BaseModel):
     domain_id: str | None = None
     subject_id: str | None = Field(default=None, max_length=200)
     request_kind: str | None = None
+    retrieval_mode: Literal['required', 'auto'] | None = None
     create_artifact: bool = False
     knowledge_scopes: list[str] = Field(default_factory=list, max_length=8)
     project_id: str = Field(default='', max_length=64)
@@ -50,6 +52,7 @@ class TaskWorker:
         self.thread = None
         self.lock_path = Path(str(path) + ".worker.lock")
         self.projects = None
+        self.default_retrieval_mode = 'required'
 
     def db(self):
         connection = sqlite3.connect(self.path, timeout=5)
@@ -144,6 +147,7 @@ class TaskWorker:
             create_artifact=value.create_artifact, knowledge_scopes=tuple(value.knowledge_scopes),
             project_id=value.project_id, project_memory=project_memory,
             knowledge_project=knowledge_project, repository=repository,
+            retrieval_mode=value.retrieval_mode or self.default_retrieval_mode,
         )
         request = self.engine.validate_request(request)
         if request.create_artifact and self.engine.artifact_store is None:
@@ -204,12 +208,15 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
                health_checks: dict | None = None, queue_capacity: int = 20,
                openai_api_key: str = "", chat_wait_seconds: float = 600,
                agent_manager=None, managed_dispatcher=None, material_client=None,
-               material_watch_entries=None, material_watch_interval=10):
+               material_watch_entries=None, material_watch_interval=10, retrieval_mode='required'):
     store = engine.state_store
     workspace = store.get_workspace(workspace_id)
     if workspace['domain_id'] != engine.domain.domain_id:
         raise ValueError('workspace domain differs from configured domain')
     worker = TaskWorker(engine, workspace_id, Path(str(store.path) + '.web.db'), queue_capacity)
+    if retrieval_mode not in {'required', 'auto'}:
+        raise ValueError('retrieval_mode must be required or auto')
+    worker.default_retrieval_mode = retrieval_mode
     static = Path(__file__).parent / 'web_static'
     agents = agents or []
     health_checks = health_checks or {}
@@ -296,6 +303,7 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
     def workspace_info():
         return {'workspace_id': workspace_id, 'name': workspace['name'],
                 'material_uploads_enabled': material_client is not None,
+                'default_retrieval_mode': worker.default_retrieval_mode,
                 'domain_id': engine.domain.domain_id,
                 'subject_label': engine.domain.subject_label,
                 'allowed_request_kinds': engine.domain.allowed_kinds,
@@ -364,6 +372,7 @@ def create_app(engine, workspace_id: str, *, agents: list[dict] | None = None,
         data['session_id'] = json.loads(job['request'])['session_id'] if job else ''
         data['project_id'] = job['project_id'] if job else ''
         data['project_memory'] = json.loads(job['request']).get('project_memory', '') if job else ''
+        data['retrieval_mode'] = json.loads(job['request']).get('retrieval_mode', 'auto') if job else 'unknown'
         data['agent_assignment'] = json.loads(job['agent_assignment']) if job and job.get('agent_assignment') else None
         return data
 

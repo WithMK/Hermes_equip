@@ -11,6 +11,9 @@ Domain Pack과 공통 프로젝트 공간으로 구성한다.
 A/O 화면에서 파일 등록·교체·실패 재시도와 처리 상태 조회를 제공하며,
 EquipmentRAG의 managed ingestion API(0.3.0-rc.3)와 함께 배포해야 합니다.
 
+일반 질문도 기본적으로 RAG를 검색합니다. 웹 UI·OpenWebUI·CLI의
+[RAG 검색 정책](docs/RAG_RETRIEVAL_POLICY.md)으로 기존 자동 판단 방식을 선택할 수 있습니다.
+
 ## 고정 원칙
 
 - Hermes Core는 수정하지 않는다.

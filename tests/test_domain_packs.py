@@ -22,6 +22,16 @@ SOURCE = {"source_id": "S1", "record_id": "guide-1", "source_type": "document",
 
 
 class DomainPackTests(unittest.TestCase):
+    def test_required_retrieval_preserves_typed_searches_and_auto_scope_trigger(self):
+        from hermes_equipment_poc.domains import EQUIPMENT
+        for kind, expected in ((RequestKind.CODE_ANALYSIS, 'code'), (RequestKind.DOCUMENT_TASK, 'document')):
+            request = OrchestratorRequest('equip', '설명', request_kind=kind)
+            required, source_type, _, _ = EQUIPMENT.retrieval(request, kind)
+            self.assertTrue(required)
+            self.assertEqual(source_type, expected)
+        scoped = OrchestratorRequest('equip', '설명', retrieval_mode='auto', knowledge_scopes=('06',))
+        self.assertEqual(EQUIPMENT.retrieval(scoped, RequestKind.QUESTION), (True, 'all', '설명', ('06',)))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

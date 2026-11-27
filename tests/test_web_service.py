@@ -61,6 +61,15 @@ class WebServiceTests(unittest.TestCase):
         self.assertEqual(download.status_code, 200)
         self.assertIn('attachment', download.headers['content-disposition'])
 
+    def test_plain_web_task_retrieval_policy_and_workspace_default(self):
+        self.assertEqual(self.client.get('/v1/workspace').json()['default_retrieval_mode'], 'required')
+        response = self.submit(objective='작동 방식을 설명해주세요')
+        self.assertEqual(response.status_code, 202, response.text)
+        data = self.done(response.json()['task_id'])
+        self.assertEqual(data['retrieval_mode'], 'required')
+        self.assertEqual(len(self.client.get(f"/v1/tasks/{data['task_id']}/evidence").json()), 1)
+        self.assertEqual(self.submit(retrieval_mode='never').status_code, 422)
+
     def test_integrity_failure_rejected(self):
         data = self.done(self.submit(create_artifact=True).json()['task_id'])
         artifact = self.store.get_task(data['task_id']).artifacts[0]

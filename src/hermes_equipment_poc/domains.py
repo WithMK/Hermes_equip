@@ -92,7 +92,7 @@ class DomainPack:
             return True, "document", query, request.knowledge_scopes
         if kind == "code_analysis":
             return True, "code", query, ()
-        if kind in {"troubleshooting", "code_change"} or request.equipment_id or request.knowledge_scopes or re.search(
+        if request.retrieval_mode == "required" or kind in {"troubleshooting", "code_change"} or request.equipment_id or request.knowledge_scopes or re.search(
             r"(?<![A-Za-z0-9])[A-Za-z]{1,12}[-_]\d{1,12}(?![A-Za-z0-9])", request.objective
         ):
             return True, "all", query, request.knowledge_scopes

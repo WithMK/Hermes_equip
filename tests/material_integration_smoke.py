@@ -19,7 +19,7 @@ import uvicorn
 
 from hermes_equipment_poc.http_client import JsonApiClient
 from hermes_equipment_poc.knowledge import EquipmentRagKnowledgeProvider
-from hermes_equipment_poc.orchestrator import AgentOrchestraStateStore, SingleOrchestrator
+from hermes_equipment_poc.orchestrator import AgentOrchestraStateStore, OrchestratorRequest, RequestKind, SingleOrchestrator
 from hermes_equipment_poc.service_clients import EquipmentRagClient
 from hermes_equipment_poc.web_service import create_app
 from test_single_orchestrator import FakeChat
@@ -111,6 +111,16 @@ def main():
                 break
             time.sleep(.02)
         assert document['status'] == 'ready', document
+        # An ordinary equipment-domain question has no ID, scope, or project binding.
+        # Its default policy must still call the real RAG and pass the body to C/M.
+        state.create_workspace('plain', name='Plain question')
+        plain_chat = FakeChat('내부 검토 후 승인합니다 [D1].')
+        plain = SingleOrchestrator(state, chat=plain_chat,
+            knowledge_provider=EquipmentRagKnowledgeProvider(EquipmentRagClient(JsonApiClient(rag_url))))
+        plain_result = plain.run(OrchestratorRequest('plain', '구매 승인 전 절차를 알려주세요', request_kind=RequestKind.QUESTION))
+        assert plain_result.finish_reason != 'no_evidence', plain_result
+        assert state.get_task(plain_result.task_id).evidence
+        assert '내부 검토' in str(plain_chat.calls), plain_chat.calls
         summary = api.get(path + '/summary')
         assert summary['counts']['ready'] == 1 and summary['needs_update'] == 0, summary
         assert api.post(path, upload)['version'] == 1
@@ -165,7 +175,7 @@ def main():
         assert source.exists()
         assert raw.post('/v1/retrieve', query)['result_count'] == 0
         assert len(api.get(path)['documents']) == 2
-        print('PASS: real HTTP/Chroma/FTS upload, scoped evidence, exclude/restore/reindex/delete, watched replacement and no resurrection')
+        print('PASS: real HTTP/Chroma/FTS upload, plain-question and scoped evidence, exclude/restore/reindex/delete, watched replacement and no resurrection')
 
 
 if __name__ == '__main__':

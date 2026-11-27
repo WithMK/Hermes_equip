@@ -113,7 +113,7 @@ class SingleOrchestratorTests(unittest.TestCase):
         )
         self.assertEqual(self.store.list_agent_runs("TASK-1")[0]["status"], "completed")
 
-    def test_general_question_skips_rag_and_uses_context_manager(self) -> None:
+    def test_auto_general_question_skips_rag_and_uses_context_manager(self) -> None:
         rag = FakeRag()
         chat = FakeChat("안녕하세요. 무엇을 도와드릴까요?")
         orchestrator = SingleOrchestrator(self.store, rag, chat)
@@ -123,6 +123,7 @@ class SingleOrchestratorTests(unittest.TestCase):
                 workspace_id="trim-project",
                 task_id="TASK-2",
                 objective="안녕하세요",
+                retrieval_mode="auto",
             )
         )
 
@@ -130,6 +131,32 @@ class SingleOrchestratorTests(unittest.TestCase):
         self.assertEqual(rag.calls, [])
         self.assertEqual(len(chat.calls), 1)
         self.assertEqual(self.store.get_task("TASK-2").status, TaskStatus.COMPLETED)
+
+    def test_plain_question_requires_rag_and_passes_evidence_to_context_manager(self) -> None:
+        rag = FakeRag([self.document_source()])
+        chat = FakeChat("입력부터 확인하세요 [S1].")
+        result = SingleOrchestrator(self.store, rag, chat).run(
+            OrchestratorRequest("trim-project", "작동 방식을 설명해주세요"))
+        self.assertEqual(result.request_kind, RequestKind.QUESTION)
+        self.assertEqual(len(rag.calls), 1)
+        self.assertEqual(rag.calls[0]["query"], "작동 방식을 설명해주세요")
+        self.assertEqual(rag.calls[0]["source_type"], "all")
+        self.assertIsNone(rag.calls[0]["document_filters"]["equipment"])
+        self.assertIn(self.document_source()["text"], chat.calls[0]["messages"][1]["content"])
+        self.assertEqual([item.source_id for item in self.store.get_task(result.task_id).evidence], ["S1"])
+
+    def test_plain_question_without_evidence_does_not_call_model(self) -> None:
+        rag, chat = FakeRag(), FakeChat()
+        result = SingleOrchestrator(self.store, rag, chat).run(
+            OrchestratorRequest("trim-project", "작동 방식을 설명해주세요"))
+        self.assertEqual(len(rag.calls), 1)
+        self.assertEqual(result.finish_reason, "no_evidence")
+        self.assertEqual(chat.calls, [])
+
+    def test_retrieval_mode_rejects_unknown_values(self) -> None:
+        for mode in ("never", True, None):
+            with self.subTest(mode=mode), self.assertRaises(ValueError):
+                OrchestratorRequest("trim-project", "설명", retrieval_mode=mode)
 
     def test_equipment_identifier_requires_retrieval_for_plain_question(self) -> None:
         rag = FakeRag([self.document_source()])
@@ -141,6 +168,7 @@ class SingleOrchestratorTests(unittest.TestCase):
                 workspace_id="trim-project",
                 task_id="TASK-E024",
                 objective="E-024의 최근 자료를 알려줘",
+                retrieval_mode="auto",
             )
         )
 

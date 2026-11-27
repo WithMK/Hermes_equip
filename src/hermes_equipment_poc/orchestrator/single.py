@@ -57,8 +57,11 @@ class OrchestratorRequest:
     project_memory: str = ""
     knowledge_project: str | None = None
     repository: str | None = None
+    retrieval_mode: str = "required"
 
     def __post_init__(self) -> None:
+        if not isinstance(self.retrieval_mode, str) or self.retrieval_mode not in {"required", "auto"}:
+            raise ValueError("retrieval_mode must be required or auto")
         if len(self.conversation) > 40 or sum(len(m.get("content", "")) for m in self.conversation) > 30000:
             raise ValueError("conversation exceeds 40 messages or 30000 characters")
         if any(m.get("role") not in {"system", "user", "assistant"} or not isinstance(m.get("content"), str) or not m["content"].strip() for m in self.conversation):
@@ -293,6 +296,7 @@ class SingleOrchestrator:
                     "phase": "planned",
                     "request_kind": kind.value,
                     "retrieval_required": plan.required,
+                    "retrieval_mode": request.retrieval_mode,
                     "source_type": plan.source_type,
                     "query": plan.query,
                     "constraints": list(request.constraints),

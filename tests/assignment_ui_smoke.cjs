@@ -34,6 +34,7 @@ const wait = async fn => {
     const input = (node, value) => { node.value = value; node.dispatchEvent(new w.Event('input', {bubbles:true})); };
     const submit = () => $('assignment-form').dispatchEvent(new w.Event('submit', {bubbles:true,cancelable:true}));
     await wait(() => $('assignment-status').textContent.includes('설정 v0'));
+    assert.equal($('retrieval-mode').value, 'required');
     assert.equal($('assignment-fields').disabled, false);
     input($('assignment-candidate'), 'document-agent'); $('assignment-add').click();
     input($('assignment-mode'), 'custom'); input($('assignment-default'), 'document-agent');
