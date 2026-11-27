@@ -95,6 +95,47 @@ class OpenAiApiTests(unittest.TestCase):
         self.assertEqual(response.json()["ao"]["finish_reason"], "no_evidence")
         self.assertEqual(self.chat.calls, [])
 
+    def test_plain_openwebui_question_retrieves_and_passes_sources_to_cm(self):
+        response = self.post(messages=[{"role": "user", "content": "작동 방식을 설명해주세요"}])
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(len(self.rag.calls), 1)
+        self.assertIn(SOURCE["text"], self.chat.calls[0]["messages"][1]["content"])
+        task_id = response.json()["ao"]["task_id"]
+        self.assertEqual(self.client.get("/v1/tasks/" + task_id).json()["retrieval_mode"], "required")
+
+    def test_explicit_auto_preserves_general_chat_and_is_recorded(self):
+        self.chat.result = FakeChat("안녕하세요.").result
+        response = self.post(messages=[{"role": "user", "content": "안녕하세요"}], ao={"retrieval_mode": "auto"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(self.rag.calls, [])
+        self.assertEqual(len(self.chat.calls), 1)
+        task_id = response.json()["ao"]["task_id"]
+        self.assertEqual(self.client.get("/v1/tasks/" + task_id).json()["retrieval_mode"], "auto")
+
+    def test_invalid_retrieval_policy_rejected_before_rag(self):
+        for mode in ("never", True, {}):
+            with self.subTest(mode=mode):
+                self.assertEqual(self.post(ao={"retrieval_mode": mode}).status_code, 400)
+        self.assertEqual(self.rag.calls, [])
+
+    def test_server_auto_default_and_per_request_required_override(self):
+        store = AgentOrchestraStateStore(Path(self.temp.name) / "auto.db")
+        store.create_workspace("W", name="Auto policy")
+        rag, chat = FakeRag(), FakeChat("안녕하세요.")
+        engine = SingleOrchestrator(store, rag, chat)
+        with TestClient(create_app(engine, "W", openai_api_key=KEY, retrieval_mode="auto"), base_url="http://localhost") as client:
+            payload = {**self.payload, "messages": [{"role": "user", "content": "안녕하세요"}]}
+            response = client.post("/v1/chat/completions", json=payload, headers=self.headers)
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(rag.calls, [])
+            self.assertEqual(len(chat.calls), 1)
+            self.assertEqual(client.get("/v1/workspace").json()["default_retrieval_mode"], "auto")
+            response = client.post("/v1/chat/completions", json={**payload, "ao": {"retrieval_mode": "required"}}, headers=self.headers)
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(len(rag.calls), 1)
+            self.assertEqual(response.json()["ao"]["finish_reason"], "no_evidence")
+            self.assertEqual(len(chat.calls), 1)
+
     def test_provider_failure_is_sanitized_in_both_modes(self):
         self.rag.error = RuntimeError("secret-api-key")
         response = self.post()

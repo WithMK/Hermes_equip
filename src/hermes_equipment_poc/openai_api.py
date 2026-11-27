@@ -97,7 +97,7 @@ def install_openai_api(app, worker, api_key: str, wait_seconds: float):
                 return error("Only stream_options.include_usage is supported")
             if value.messages[-1].role != "user" or any(not m.content.strip() for m in value.messages):
                 return error("Messages must contain non-empty text and end with a user message")
-            if set(value.ao) - {"subject_id", "equipment_id", "request_kind", "create_artifact", "knowledge_scopes", "domain_id", "project_id", "use_memory", "source_task_id"}:
+            if set(value.ao) - {"subject_id", "equipment_id", "request_kind", "create_artifact", "knowledge_scopes", "domain_id", "project_id", "use_memory", "source_task_id", "retrieval_mode"}:
                 return error("Unsupported A/O option")
             options = dict(value.ao)
             report_mode = value.model == model_id + '/report'
